@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Operaciones | PL & MIP</title>
+
+    <!-- KaTeX para renderizado matemático nítido e instantáneo -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #0b0f19;
+            --bg-panel: #111827;
+            --bg-card: #1f2937;
+            --border-color: #374151;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --table-header: #1e293b;
+            --canvas-bg: #111827;
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f8fafc;
+            --bg-panel: #ffffff;
+            --bg-card: #f1f5f9;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --table-header: #f1f5f9;
+            --canvas-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* Barra Superior */
+        .top-navbar {
+            height: 48px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1.5rem;
+            flex-shrink: 0;
+        }
+        .app-title { font-size: 15px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .app-title span { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+        .nav-actions { display: flex; gap: 8px; align-items: center; }
+
+        /* Estructura Principal */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr 1.15fr;
+            gap: 12px;
+            padding: 10px 14px;
+            flex-grow: 1;
+            height: calc(100vh - 48px);
+            overflow: hidden;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        /* Controles de Formulario */
+        .section-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .control-group { display: flex; flex-direction: column; gap: 3px; }
+        label { font-size: 11px; color: var(--text-muted); }
+
+        input, select, button {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+        button { cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+        button.primary { background-color: var(--accent); color: #ffffff; border: none; }
+        button.primary:hover { background-color: var(--accent-hover); }
+        button.secondary { background-color: transparent; }
+        button.secondary:hover { background-color: var(--bg-card); }
+
+        /* Tablas */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid var(--border-color); padding: 4px 6px; text-align: center; }
+        th { background-color: var(--table-header); color: var(--text-muted); font-weight: 600; }
+        td input { width: 100%; border: none; background: transparent; text-align: center; color: var(--text-main); font-size: 12px; }
+        td input:focus { background-color: var(--bg-card); }
+
+        /* Pestañas */
+        .tab-headers { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+        .tab-btn { background: none; border: none; color: var(--text-muted); padding: 4px 10px; border-radius: 4px; font-weight: 600; }
+        .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); border-radius: 0; }
+        .tab-content { display: none; height: 100%; overflow-y: auto; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 8px; }
+
+        /* Tarjetas de Métricas */
+        .metric-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metric-val { font-size: 24px; font-weight: 800; color: var(--accent); }
+        .status-chip {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11.5px;
+            font-weight: 600;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        /* Canvas */
+        #canvas2D { width: 100%; height: 320px; border-radius: 6px; border: 1px solid var(--border-color); }
+        
+        .disabled-box { opacity: 0.4; pointer-events: none; }
+        .scrollable-box { overflow-x: auto; max-height: 220px; border-radius: 4px; border: 1px solid var(--border-color); }
+        .katex-display { margin: 4px 0 !important; }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR SUPERIOR -->
+    <div class="top-navbar">
+        <div class="app-title">
+            Optimizador de Operaciones
+            <span>Investigación de Operaciones — Programación Lineal y Entera</span>
+        </div>
+        <div class="nav-actions">
+            <select id="selCaso">
+                <option value="wyndor">Ejemplo 3.1: Wyndor Glass Co. (Continuo 2D)</option>
+                <option value="radiacion">Ejemplo 3.4: Terapia de Radiación (Dos Fases)</option>
+                <option value="omega">Problema 3.1-11: Omega Manufacturing (MIP)</option>
+            </select>
+            <button class="secondary" onclick="cargarCaso()">Cargar</button>
+            <input type="text" id="guardarNombre" placeholder="Nombre caso..." style="width: 140px;">
+            <button class="secondary" onclick="guardarCaso()">Guardar</button>
+            <button class="secondary" onclick="toggleTema()" id="btnTema">Tema Claro</button>
+        </div>
+    </div>
+
+    <!-- CUERPO PRINCIPAL (3 PANELES) -->
+    <div class="main-layout">
+
+        <!-- PANEL LATERAL DE CONFIGURACIÓN -->
+        <div class="panel">
+            <div class="section-label">Configuración del Modelo</div>
+            <div class="control-group">
+                <label>Criterio de Optimización</label>
+                <select id="tipoOpt" onchange="actualizarModelo();">
+                    <option value="MAX">Maximizar (MAX)</option>
+                    <option value="MIN">Minimizar (MIN)</option>
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <div class="control-group">
+                    <label>Variables (n)</label>
+                    <input type="number" id="numVars" value="2" min="1" max="10" onchange="redimensionar();">
+                </div>
+                <div class="control-group">
+                    <label>Restricciones (m)</label>
+                    <input type="number" id="numRestr" value="3" min="1" max="10" onchange="redimensionar();">
+                </div>
+            </div>
+
+            <hr style="border: 0.5px solid var(--border-color);">
+            <div class="section-label">Naturaleza de Variables</div>
+            <div class="control-group">
+                <select id="modoVar" onchange="cambiarModoVar();">
+                    <option value="cont">Continuas (PL)</option>
+                    <option value="int">Todas Enteras (PLE)</option>
+                    <option value="mip">Personalizado (MIP)</option>
+                </select>
+            </div>
+
+            <div id="contenedorMIP" class="disabled-box" style="display: flex; flex-direction: column; gap: 4px;">
+                <label>Selección de variables enteras:</label>
+                <div id="listaCheckEnteros" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+            </div>
+
+            <hr style="border: 0.5px solid var(--border-color); margin-top: auto;">
+            <button class="secondary" onclick="limpiarCero();">Limpiar a Cero</button>
+        </div>
+
+        <!-- PANEL CENTRAL: ENTRADA DE DATOS Y FORMULACIÓN -->
+        <div class="panel">
+            <div class="section-label">1. Función Objetivo (Z)</div>
+            <div class="scrollable-box" style="max-height: 70px;">
+                <table id="tablaObj"></table>
+            </div>
+
+            <div class="section-label">2. Matriz de Restricciones Tecnológicas</div>
+            <div class="scrollable-box" style="max-height: 230px;">
+                <table id="tablaRestr"></table>
+            </div>
+
+            <div class="section-label">3. Formulación Matemática</div>
+            <div id="latexBox" style="background: var(--bg-card); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); overflow-x: auto;"></div>
+        </div>
+
+        <!-- PANEL DERECHO: RESULTADOS Y PESTAÑAS -->
+        <div class="panel">
+            <div class="tab-headers">
+                <button class="tab-btn active" onclick="cambiarTab('tabSol', this)">Solución</button>
+                <button class="tab-btn" onclick="cambiarTab('tabGraf', this)">Gráfico 2D</button>
+                <button class="tab-btn" onclick="cambiarTab('tabTablas', this)">Tablas Símplex</button>
+                <button class="tab-btn" onclick="cambiarTab('tabTree', this)">Árbol B&B</button>
+            </div>
+
+            <!-- TAB SOLUCIÓN -->
+            <div id="tabSol" class="tab-content active">
+                <div class="metric-card">
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Valor Óptimo Z*</div>
+                        <div class="metric-val" id="valZOpt">0.0000</div>
+                    </div>
+                    <div id="statusChip" class="status-chip">Factible</div>
+                </div>
+
+                <div class="section-label" style="margin-top: 4px;">Variables de Decisión</div>
+                <div class="scrollable-box" style="max-height: 140px;">
+                    <table id="tablaSolVars">
+                        <thead><tr><th>Variable</th><th>Valor Óptimo</th><th>Naturaleza</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="section-label" style="margin-top: 4px;">Recursos y Precios Sombra</div>
+                <div class="scrollable-box" style="max-height: 160px;">
+                    <table id="tablaRecursos">
+                        <thead><tr><th>Recurso</th><th>Holgura</th><th>Precio Sombra</th><th>Estado</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB GRÁFICO 2D -->
+            <div id="tabGraf" class="tab-content">
+                <canvas id="canvas2D"></canvas>
+                <div id="leyendaHTML" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 11px;"></div>
+            </div>
+
+            <!-- TAB TABLAS SÍMPLEX -->
+            <div id="tabTablas" class="tab-content">
+                <div id="logTablas" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+
+            <!-- TAB ÁRBOL B&B -->
+            <div id="tabTree" class="tab-content">
+                <div id="logTree" style="font-family: monospace; font-size: 11.5px; white-space: pre-wrap; background: var(--bg-card); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-muted); height: 100%; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MOTOR MATEMÁTICO COMPLETO -->
+    <script>
+        // Estado del modelo
+        let modelo = {
+            tipo: 'MAX',
+            modoVar: 'cont',
+            c: [3, 5],
+            A: [[1, 0], [0, 2], [3, 2]],
+            ops: ['<=', '<=', '<='],
+            b: [4, 12, 18],
+            restrNombres: ['Planta 1', 'Planta 2', 'Planta 3'],
+            enterosSel: []
+        };
+
+        const EJERCICIOS = {
+            wyndor: {
+                tipo: 'MAX', modoVar: 'cont', c: [3, 5],
+                A: [[1, 0], [0, 2], [3, 2]], ops: ['<=', '<=', '<='], b: [4, 12, 18],
+                restrNombres: ['Planta 1', 'Planta 2', 'Planta 3'], enterosSel: []
+            },
+            radiacion: {
+                tipo: 'MIN', modoVar: 'cont', c: [0.4, 0.5],
+                A: [[0.3, 0.1], [0.5, 0.5], [0.6, 0.4]], ops: ['<=', '=', '>='], b: [2.7, 6.0, 6.0],
+                restrNombres: ['Tejido Sano', 'Dosis Requerida', 'Centro Tumor'], enterosSel: []
+            },
+            omega: {
+                tipo: 'MAX', modoVar: 'int', c: [50, 20, 25],
+                A: [[9, 3, 5], [5, 4, 0], [3, 0, 2], [0, 0, 1]], ops: ['<=', '<=', '<=', '<='], b: [500, 350, 150, 20],
+                restrNombres: ['Fresadora', 'Torno', 'Rectificadora', 'Demanda P3'], enterosSel: ['x1', 'x2', 'x3']
+            }
+        };
+
+        function init() {
+            renderTablas();
+            actualizarModelo();
+        }
+
+        function redimensionar() {
+            const n = parseInt(document.getElementById('numVars').value);
+            const m = parseInt(document.getElementById('numRestr').value);
+
+            while(modelo.c.length < n) modelo.c.push(0);
+            modelo.c = modelo.c.slice(0, n);
+
+            while(modelo.A.length < m) {
+                modelo.A.push(new Array(n).fill(0));
+                modelo.ops.push('<=');
+                modelo.b.push(0);
+                modelo.restrNombres.push(`R${modelo.A.length}`);
+            }
+            modelo.A = modelo.A.slice(0, m);
+            modelo.ops = modelo.ops.slice(0, m);
+            modelo.b = modelo.b.slice(0, m);
+            modelo.restrNombres = modelo.restrNombres.slice(0, m);
+
+            for(let i=0; i<m; i++) {
+                while(modelo.A[i].length < n) modelo.A[i].push(0);
+                modelo.A[i] = modelo.A[i].slice(0, n);
+            }
+
+            renderTablas();
+            actualizarModelo();
+        }
+
+        function renderTablas() {
+            const n = modelo.c.length;
+            const m = modelo.b.length;
+
+            // Tabla Función Objetivo
+            let hObj = '<tr>', rObj = '<tr>';
+            for(let j=0; j<n; j++) {
+                hObj += `<th>x${j+1}</th>`;
+                rObj += `<td><input type="number" step="any" value="${modelo.c[j]}" oninput="modelo.c[${j}]=parseFloat(this.value)||0; actualizarModelo();"></td>`;
+            }
+            document.getElementById('tablaObj').innerHTML = hObj + '</tr>' + rObj + '</tr>';
+
+            // Tabla Restricciones
+            let hRes = '<tr><th>Recurso</th>';
+            for(let j=0; j<n; j++) hRes += `<th>x${j+1}</th>`;
+            hRes += '<th>Op</th><th>b</th></tr>';
+
+            let bRes = '';
+            for(let i=0; i<m; i++) {
+                bRes += `<tr><td><input type="text" value="${modelo.restrNombres[i]}" oninput="modelo.restrNombres[${i}]=this.value; actualizarModelo();"></td>`;
+                for(let j=0; j<n; j++) {
+                    bRes += `<td><input type="number" step="any" value="${modelo.A[i][j]}" oninput="modelo.A[${i}][${j}]=parseFloat(this.value)||0; actualizarModelo();"></td>`;
+                }
+                bRes += `<td><select onchange="modelo.ops[${i}]=this.value; actualizarModelo();">
+                    <option value="<=" ${modelo.ops[i]==='<='?'selected':''}>&le;</option>
+                    <option value=">=" ${modelo.ops[i]==='>='?'selected':''}>&ge;</option>
+                    <option value="=" ${modelo.ops[i]==='='?'selected':''}>=</option>
+                </select></td>`;
+                bRes += `<td><input type="number" step="any" value="${modelo.b[i]}" oninput="modelo.b[${i}]=parseFloat(this.value)||0; actualizarModelo();"></td></tr>`;
+            }
+            document.getElementById('tablaRestr').innerHTML = hRes + bRes;
+
+            // Checkbox MIP
+            let htmlCheck = '';
+            for(let j=0; j<n; j++) {
+                let vNom = `x${j+1}`;
+                let checked = modelo.enterosSel.includes(vNom) ? 'checked' : '';
+                htmlCheck += `<label style="display:inline-flex; align-items:center; gap:2px;"><input type="checkbox" value="${vNom}" ${checked} onchange="toggleEnteroVar('${vNom}', this.checked)"> ${vNom}</label>`;
+            }
+            document.getElementById('listaCheckEnteros').innerHTML = htmlCheck;
+        }
+
+        function cambiarModoVar() {
+            const modo = document.getElementById('modoVar').value;
+            modelo.modoVar = modo;
+            const contenedor = document.getElementById('contenedorMIP');
+
+            if(modo === 'mip') {
+                contenedor.classList.remove('disabled-box');
+            } else {
+                contenedor.classList.add('disabled-box');
+                if(modo === 'int') {
+                    modelo.enterosSel = modelo.c.map((_, j) => `x${j+1}`);
+                } else {
+                    modelo.enterosSel = [];
+                }
+            }
+            actualizarModelo();
+        }
+
+        function toggleEnteroVar(vNom, isCheck) {
+            if(isCheck) {
+                if(!modelo.enterosSel.includes(vNom)) modelo.enterosSel.push(vNom);
+            } else {
+                modelo.enterosSel = modelo.enterosSel.filter(v => v !== vNom);
+            }
+            actualizarModelo();
+        }
+
+        function actualizarModelo() {
+            modelo.tipo = document.getElementById('tipoOpt').value;
+            renderLaTeX();
+            resolver();
+        }
+
+        function renderLaTeX() {
+            const n = modelo.c.length;
+            const m = modelo.b.length;
+
+            function formatTerm(coefs) {
+                let terms = [];
+                for(let j=0; j<coefs.length; j++) {
+                    let v = coefs[j];
+                    if(Math.abs(v) < 1e-7) continue;
+                    let sgn = v < 0 ? ' - ' : (terms.length ? ' + ' : '');
+                    let absV = Math.abs(v);
+                    let cStr = Math.abs(absV - 1.0) < 1e-7 ? '' : `${absV}`;
+                    terms.push(`${sgn}${cStr}x_{${j+1}}`);
+                }
+                return terms.length ? terms.join('') : '0';
+            }
+
+            let termZ = formatTerm(modelo.c);
+            let tex = `\\begin{aligned} \\text{${modelo.tipo === 'MAX' ? 'Max' : 'Min'}} \\quad & Z = ${termZ} \\\\[2pt] `;
+
+            for(let i=0; i<m; i++) {
+                let termR = formatTerm(modelo.A[i]);
+                let opS = modelo.ops[i] === '<=' ? '\\le' : (modelo.ops[i] === '>=' ? '\\ge' : '=');
+                tex += `\\text{${modelo.restrNombres[i]}}: \\quad & ${termR} ${opS} ${modelo.b[i]} \\\\[1pt] `;
+            }
+
+            if(modelo.modoVar === 'int') {
+                tex += `& x_1, \\dots, x_{${n}} \\in \\mathbb{Z}_{\\ge 0} \\end{aligned}`;
+            } else if(modelo.modoVar === 'mip' && modelo.enterosSel.length > 0) {
+                let eStr = modelo.enterosSel.join(', ');
+                let cStr = modelo.c.map((_, j) => `x${j+1}`).filter(v => !modelo.enterosSel.includes(v)).join(', ');
+                tex += `& ${eStr} \\in \\mathbb{Z}_{\\ge 0}${cStr ? '; \\quad ' + cStr + ' \\ge 0' : ''} \\end{aligned}`;
+            } else {
+                tex += `& x_1, \\dots, x_{${n}} \\ge 0 \\end{aligned}`;
+            }
+
+            if(window.katex) {
+                katex.render(tex, document.getElementById('latexBox'), { throwOnError: false });
+            }
+        }
+
+        // ==========================================
+        // ALGORITMO SÍMPLEX DE DOS FASES
+        // ==========================================
+        function simplexDosFases(cOrig, AOrig, opsOrig, bOrig, tipoOpt) {
+            let m = bOrig.length, n = cOrig.length;
+            let A = JSON.parse(JSON.stringify(AOrig)), b = [...bOrig], ops = [...opsOrig];
+
+            // Invertir b negativos
+            for(let i=0; i<m; i++) {
+                if(b[i] < -1e-8) {
+                    b[i] *= -1;
+                    for(let j=0; j<n; j++) A[i][j] *= -1;
+                    ops[i] = ops[i] === '<=' ? '>=' : (ops[i] === '>=' ? '<=' : '=');
+                }
+            }
+
+            let nombresTotales = [];
+            for(let j=0; j<n; j++) nombresTotales.push(`x${j+1}`);
+
+            let colsAum = [], basicas = [], artIndices = [], tipos = new Array(n).fill('dec'), restrOrigen = new Array(n).fill(null);
+            let sIdx = 1, eIdx = 1, aIdx = 1;
+
+            for(let i=0; i<m; i++) {
+                if(ops[i] === '<=') {
+                    let col = new Array(m).fill(0); col[i] = 1;
+                    colsAum.push(col);
+                    nombresTotales.push(`s${sIdx++}`);
+                    tipos.push('slack'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                } else if(ops[i] === '>=') {
+                    let colE = new Array(m).fill(0); colE[i] = -1;
+                    colsAum.push(colE);
+                    nombresTotales.push(`e${eIdx++}`);
+                    tipos.push('surplus'); restrOrigen.push(i);
+
+                    let colA = new Array(m).fill(0); colA[i] = 1;
+                    colsAum.push(colA);
+                    nombresTotales.push(`a${aIdx++}`);
+                    tipos.push('art'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                    artIndices.push(nombresTotales.length - 1);
+                } else {
+                    let colA = new Array(m).fill(0); colA[i] = 1;
+                    colsAum.push(colA);
+                    nombresTotales.push(`a${aIdx++}`);
+                    tipos.push('art'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                    artIndices.push(nombresTotales.length - 1);
+                }
+            }
+
+            let totalCols = n + colsAum.length;
+            let matrizA = [];
+            for(let i=0; i<m; i++) {
+                let fila = [...A[i]];
+                for(let k=0; k<colsAum.length; k++) fila.push(colsAum[k][i]);
+                matrizA.push(fila);
+            }
+
+            let historialTablas = [];
+
+            function pivotar(T, fPiv, cPiv, basicasArr) {
+                let pVal = T[fPiv][cPiv];
+                for(let j=0; j<T[0].length; j++) T[fPiv][j] /= pVal;
+                for(let r=0; r<T.length; r++) {
+                    if(r !== fPiv) {
+                        let fac = T[r][cPiv];
+                        for(let j=0; j<T[0].length; j++) T[r][j] -= fac * T[fPiv][j];
+                    }
+                }
+                basicasArr[fPiv - 1] = cPiv - 1;
+            }
+
+            // FASE 1
+            if(artIndices.length > 0) {
+                let T1 = [];
+                let r0 = [1, ...new Array(totalCols).fill(0), 0];
+                for(let idx of artIndices) r0[idx + 1] = 1.0; // Min W = sum(a_i)
+                T1.push(r0);
+                for(let i=0; i<m; i++) T1.push([0, ...matrizA[i], b[i]]);
+
+                for(let i=0; i<m; i++) {
+                    if(artIndices.includes(basicas[i])) {
+                        for(let j=0; j<T1[0].length; j++) T1[0][j] -= T1[i+1][j];
+                    }
+                }
+
+                let iter = 0;
+                while(iter++ < 50) {
+                    historialTablas.push({ fase: 1, iter, tabla: JSON.parse(JSON.stringify(T1)), basicas: basicas.map(idx => nombresTotales[idx]), cols: ['Z/W', ...nombresTotales, 'RHS'] });
+                    let minCost = 0, cPiv = -1;
+                    for(let j=1; j<=totalCols; j++) if(T1[0][j] < minCost - 1e-7) { minCost = T1[0][j]; cPiv = j; }
+                    if(cPiv === -1) break;
+
+                    let minR = Infinity, fPiv = -1;
+                    for(let i=1; i<=m; i++) {
+                        if(T1[i][cPiv] > 1e-7) {
+                            let r = T1[i][T1[0].length - 1] / T1[i][cPiv];
+                            if(r < minR) { minR = r; fPiv = i; }
+                        }
+                    }
+                    if(fPiv === -1) return { exito: false, msg: 'No acotado' };
+                    pivotar(T1, fPiv, cPiv, basicas);
+                }
+
+                if(Math.abs(T1[0][T1[0].length - 1]) > 1e-4) return { exito: false, msg: 'Infactible (Región vacía)' };
+
+                let validCols = [];
+                for(let j=0; j<totalCols; j++) if(!artIndices.includes(j)) validCols.push(j);
+
+                matrizA = [];
+                for(let i=1; i<=m; i++) {
+                    matrizA.push(validCols.map(j => T1[i][j + 1]));
+                    b[i-1] = T1[i][T1[0].length - 1];
+                }
+                totalCols = validCols.length;
+                nombresTotales = validCols.map(j => nombresTotales[j]);
+                tipos = validCols.map(j => tipos[j]);
+                restrOrigen = validCols.map(j => restrOrigen[j]);
+                basicas = basicas.map(idx => validCols.indexOf(idx));
+            }
+
+            // FASE 2
+            let c2 = new Array(totalCols).fill(0);
+            for(let j=0; j<n; j++) c2[j] = tipoOpt === 'MAX' ? cOrig[j] : -cOrig[j];
+
+            let T2 = [];
+            T2.push([1, ...c2.map(v => -v), 0]);
+            for(let i=0; i<m; i++) T2.push([0, ...matrizA[i], b[i]]);
+
+            for(let i=0; i<m; i++) {
+                let bCol = basicas[i];
+                let fac = T2[0][bCol + 1];
+                if(Math.abs(fac) > 1e-7) {
+                    for(let j=0; j<T2[0].length; j++) T2[0][j] -= fac * T2[i+1][j];
+                }
+            }
+
+            let iter2 = 0;
+            while(iter2++ < 50) {
+                historialTablas.push({ fase: 2, iter: iter2, tabla: JSON.parse(JSON.stringify(T2)), basicas: basicas.map(idx => nombresTotales[idx]), cols: ['Z/W', ...nombresTotales, 'RHS'] });
+                let minCost = 0, cPiv = -1;
+                for(let j=1; j<=totalCols; j++) if(T2[0][j] < minCost - 1e-7) { minCost = T2[0][j]; cPiv = j; }
+                if(cPiv === -1) break;
+
+                let minR = Infinity, fPiv = -1;
+                for(let i=1; i<=m; i++) {
+                    if(T2[i][cPiv] > 1e-7) {
+                        let r = T2[i][T2[0].length - 1] / T2[i][cPiv];
+                        if(r < minR) { minR = r; fPiv = i; }
+                    }
+                }
+                if(fPiv === -1) return { exito: false, msg: 'No acotado' };
+                pivotar(T2, fPiv, cPiv, basicas);
+            }
+
+            let sol = {};
+            nombresTotales.forEach(nom => sol[nom] = 0);
+            for(let i=0; i<m; i++) sol[nombresTotales[basicas[i]]] = Math.max(0, T2[i+1][T2[0].length - 1]);
+
+            let zOpt = T2[0][T2[0].length - 1] * (tipoOpt === 'MAX' ? 1 : -1);
+
+            let sombras = {};
+            for(let j=0; j<totalCols; j++) {
+                if((tipos[j] === 'slack' || tipos[j] === 'surplus') && restrOrigen[j] !== null) {
+                    let rNom = modelo.restrNombres[restrOrigen[j]];
+                    let coef = T2[0][j + 1];
+                    let valDual = tipos[j] === 'slack' ? coef : -coef;
+                    if(tipoOpt === 'MIN') valDual *= -1;
+                    sombras[rNom] = Math.abs(valDual);
+                }
+            }
+
+            return { exito: true, zOpt, sol, sombras, historial: historialTablas };
+        }
+
+        // ==========================================
+        // ALGORITMO BRANCH & BOUND (MIP / ILP)
+        // ==========================================
+        function branchAndBound(indicesEnteros) {
+            let bestZ = modelo.tipo === 'MAX' ? -Infinity : Infinity;
+            let bestSol = null;
+            let nodosExplorados = 0;
+            let logArbol = [];
+
+            let pila = [{ A: JSON.parse(JSON.stringify(modelo.A)), ops: [...modelo.ops], b: [...modelo.b], tag: 'Raíz' }];
+
+            while(pila.length > 0 && nodosExplorados < 180) {
+                let nodo = pila.pop();
+                nodosExplorados++;
+
+                let res = simplexDosFases(modelo.c, nodo.A, nodo.ops, nodo.b, modelo.tipo);
+
+                if(!res.exito) {
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Infactible / Podado`);
+                    continue;
+                }
+
+                if((modelo.tipo === 'MAX' && res.zOpt <= bestZ + 1e-4) || (modelo.tipo === 'MIN' && res.zOpt >= bestZ - 1e-4)) {
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Z = ${res.zOpt.toFixed(2)} <= Cota / Podado`);
+                    continue;
+                }
+
+                let varFrac = null;
+                for(let j of indicesEnteros) {
+                    let val = res.sol[`x${j+1}`] || 0;
+                    if(Math.abs(val - Math.round(val)) > 1e-4) {
+                        varFrac = { j, val };
+                        break;
+                    }
+                }
+
+                if(!varFrac) {
+                    bestZ = res.zOpt;
+                    bestSol = { ...res.sol };
+                    for(let j of indicesEnteros) bestSol[`x${j+1}`] = Math.round(bestSol[`x${j+1}`]);
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Solución Entera Z = ${bestZ.toFixed(2)} (Incumbente)`);
+                } else {
+                    let nom = `x${varFrac.j + 1}`;
+                    let fVal = Math.floor(varFrac.val), cVal = Math.ceil(varFrac.val);
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Z = ${res.zOpt.toFixed(2)} -> Bifurca ${nom} = ${varFrac.val.toFixed(2)}`);
+
+                    let filaL = new Array(modelo.c.length).fill(0); filaL[varFrac.j] = 1;
+                    pila.push({ A: [...nodo.A, filaL], ops: [...nodo.ops, '<='], b: [...nodo.b, fVal], tag: `${nom} <= ${fVal}` });
+
+                    let filaR = new Array(modelo.c.length).fill(0); filaR[varFrac.j] = 1;
+                    pila.push({ A: [...nodo.A, filaR], ops: [...nodo.ops, '>='], b: [...nodo.b, cVal], tag: `${nom} >= ${cVal}` });
+                }
+            }
+
+            if(!bestSol) return { exito: false, msg: 'Sin solución entera factible' };
+            return { exito: true, zOpt: bestZ, sol: bestSol, sombras: {}, logArbol, nodosExplorados };
+        }
+
+        // ==========================================
+        // RESOLVER Y DESPLEGAR
+        // ==========================================
+        function resolver() {
+            let indicesEnteros = [];
+            if(modelo.modoVar === 'int') {
+                indicesEnteros = modelo.c.map((_, j) => j);
+            } else if(modelo.modoVar === 'mip') {
+                indicesEnteros = modelo.enterosSel.map(v => parseInt(v.replace('x', '')) - 1);
+            }
+
+            let esEntero = indicesEnteros.length > 0;
+            let res;
+
+            if(esEntero) {
+                res = branchAndBound(indicesEnteros);
+            } else {
+                res = simplexDosFases(modelo.c, modelo.A, modelo.ops, modelo.b, modelo.tipo);
+            }
+
+            if(!res.exito) {
+                document.getElementById('valZOpt').innerText = "Infactible";
+                document.getElementById('statusChip').innerText = res.msg;
+                document.getElementById('statusChip').style.color = 'var(--danger)';
+                document.getElementById('statusChip').style.borderColor = 'var(--danger)';
+                return;
+            }
+
+            document.getElementById('valZOpt').innerText = res.zOpt.toFixed(esEntero ? 2 : 4);
+            let tagModo = modelo.modoVar === 'int' ? 'Entero Puro (PLE)' : (esEntero ? 'Entero Mixto (MIP)' : 'Continuo (PL)');
+            document.getElementById('statusChip').innerText = `● Óptimo · ${tagModo}`;
+            document.getElementById('statusChip').style.color = 'var(--accent)';
+            document.getElementById('statusChip').style.borderColor = 'var(--accent)';
+
+            // Tabla Variables de Decisión
+            let tbodyV = '';
+            for(let j=0; j<modelo.c.length; j++) {
+                let nom = `x${j+1}`;
+                let v = res.sol[nom] || 0;
+                let esInt = indicesEnteros.includes(j);
+                tbodyV += `<tr><td><strong>${nom}</strong></td><td>${esInt ? Math.round(v) : v.toFixed(4)}</td><td>${esInt ? 'Entera' : 'Continua'}</td></tr>`;
+            }
+            document.getElementById('tablaSolVars').querySelector('tbody').innerHTML = tbodyV;
+
+            // Tabla Recursos y Precios Sombra
+            let tbodyR = '';
+            for(let i=0; i<modelo.b.length; i++) {
+                let consumo = 0;
+                for(let j=0; j<modelo.c.length; j++) consumo += modelo.A[i][j] * (res.sol[`x${j+1}`] || 0);
+                let holg = Math.abs(modelo.b[i] - consumo);
+                let esCuello = holg < 1e-4;
+                let sombra = (res.sombras && res.sombras[modelo.restrNombres[i]]) ? res.sombras[modelo.restrNombres[i]].toFixed(2) : '0.00';
+                tbodyR += `<tr>
+                    <td><strong>${modelo.restrNombres[i]}</strong></td>
+                    <td>${holg.toFixed(2)}</td>
+                    <td>${sombra}</td>
+                    <td><span style="color:${esCuello ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">${esCuello ? 'Agotado (Cuello)' : 'Capacidad Libre'}</span></td>
+                </tr>`;
+            }
+            document.getElementById('tablaRecursos').querySelector('tbody').innerHTML = tbodyR;
+
+            // Gráfico 2D
+            if(modelo.c.length === 2) {
+                dibujarGrafico(res.sol, res.zOpt);
+            }
+
+            // Tablas Símplex
+            let logTabHtml = '';
+            if(res.historial && res.historial.length > 0) {
+                res.historial.forEach(h => {
+                    logTabHtml += `<div style="border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; background: var(--bg-card);">
+                        <div style="font-weight:700; margin-bottom:4px; font-size:11.5px;">Fase ${h.fase} | Iteración ${h.iter}</div>
+                        <div style="overflow-x:auto;"><table><thead><tr><th>Base</th>${h.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+                    for(let r=0; r<h.tabla.length; r++) {
+                        let bNom = r === 0 ? 'Z/W' : h.basicas[r-1];
+                        logTabHtml += `<tr><td><strong>${bNom}</strong></td>${h.tabla[r].map(val => `<td>${val.toFixed(2)}</td>`).join('')}</tr>`;
+                    }
+                    logTabHtml += `</tbody></table></div></div>`;
+                });
+            } else {
+                logTabHtml = '<div style="color: var(--text-muted); font-size: 11px;">El modelo fue resuelto mediante Branch & Bound. Las tablas corresponden a subnodos.</div>';
+            }
+            document.getElementById('logTablas').innerHTML = logTabHtml;
+
+            // Árbol B&B Log
+            document.getElementById('logTree').innerText = res.logArbol ? res.logArbol.join('\n') : 'Active variables enteras para generar el árbol de bifurcación.';
+        }
+
+        // ==========================================
+        // CANVAS 2D CON LEYENDA Y ESCALA GRADUADA
+        // ==========================================
+        function dibujarGrafico(sol, zOpt) {
+            const cv = document.getElementById('canvas2D');
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = cv.getBoundingClientRect();
+            
+            const W = rect.width || 480;
+            const H = 340;
+            cv.width = W * dpr;
+            cv.height = H * dpr;
+            ctx.scale(dpr, dpr);
+
+            const esClaro = document.body.getAttribute('data-theme') === 'light';
+            const colorTexto = esClaro ? '#0f172a' : '#f8fafc';
+            const colorMuted = esClaro ? '#64748b' : '#94a3b8';
+            const colorEjes = esClaro ? '#94a3b8' : '#475569';
+            const colorGrid = esClaro ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+            const bgLeyenda = esClaro ? 'rgba(255,255,255,0.92)' : 'rgba(17,24,39,0.9)';
+            const bordeLeyenda = esClaro ? '#cbd5e1' : '#374151';
+
+            ctx.clearRect(0, 0, W, H);
+
+            // 1. Cálculo de intersecciones de frontera
+            let m = modelo.b.length;
+            let lineas = [];
+            for(let i=0; i<m; i++) lineas.push([modelo.A[i][0], modelo.A[i][1], modelo.b[i]]);
+            lineas.push([1, 0, 0]); lineas.push([0, 1, 0]);
+
+            let pts = [];
+            for(let i=0; i<lineas.length; i++) {
+                for(let j=i+1; j<lineas.length; j++) {
+                    let det = lineas[i][0]*lineas[j][1] - lineas[i][1]*lineas[j][0];
+                    if(Math.abs(det) > 1e-7) {
+                        let px = (lineas[i][2]*lineas[j][1] - lineas[i][1]*lineas[j][2]) / det;
+                        let py = (lineas[i][0]*lineas[j][2] - lineas[i][2]*lineas[j][0]) / det;
+                        if(px >= -1e-4 && py >= -1e-4) {
+                            let fact = true;
+                            for(let k=0; k<m; k++) {
+                                let val = modelo.A[k][0]*px + modelo.A[k][1]*py;
+                                if((modelo.ops[k]==='<=' && val > modelo.b[k]+1e-4) ||
+                                   (modelo.ops[k]==='>=' && val < modelo.b[k]-1e-4) ||
+                                   (modelo.ops[k]==='=' && Math.abs(val - modelo.b[k]) > 1e-4)) {
+                                    fact = false; break;
+                                }
+                            }
+                            if(fact && !pts.some(p => Math.hypot(p.x - px, p.y - py) < 1e-3)) pts.push({ x: px, y: py });
+                        }
+                    }
+                }
+            }
+
+            // Escala y límites
+            let maxV = Math.max(...pts.map(p => Math.max(p.x, p.y)), 5);
+            for(let i=0; i<m; i++) {
+                if(Math.abs(modelo.A[i][0]) > 1e-4) maxV = Math.max(maxV, modelo.b[i] / modelo.A[i][0]);
+                if(Math.abs(modelo.A[i][1]) > 1e-4) maxV = Math.max(maxV, modelo.b[i] / modelo.A[i][1]);
+            }
+            maxV = Math.min(maxV * 1.25, 200);
+
+            const padL = 42, padB = 28, padR = 20, padT = 16;
+            let toX = (x) => padL + (x / maxV) * (W - padL - padR);
+            let toY = (y) => (H - padB) - (y / maxV) * (H - padT - padB);
+
+            // 2. Cuadrícula y escala graduada (Ticks)
+            let tickStep = Math.pow(10, Math.floor(Math.log10(maxV)));
+            if (maxV / tickStep < 3) tickStep /= 2;
+            else if (maxV / tickStep > 7) tickStep *= 2;
+
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = colorMuted;
+
+            for(let v = tickStep; v < maxV; v += tickStep) {
+                // Ticks Eje X
+                let xPos = toX(v);
+                ctx.strokeStyle = colorGrid;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(xPos, toY(0)); ctx.lineTo(xPos, toY(maxV));
+                ctx.stroke();
+
+                ctx.strokeStyle = colorEjes;
+                ctx.beginPath();
+                ctx.moveTo(xPos, toY(0)); ctx.lineTo(xPos, toY(0) + 4);
+                ctx.stroke();
+                ctx.fillText(Number(v.toFixed(1)), xPos, toY(0) + 14);
+
+                // Ticks Eje Y
+                let yPos = toY(v);
+                ctx.strokeStyle = colorGrid;
+                ctx.beginPath();
+                ctx.moveTo(toX(0), yPos); ctx.lineTo(toX(maxV), yPos);
+                ctx.stroke();
+
+                ctx.strokeStyle = colorEjes;
+                ctx.beginPath();
+                ctx.moveTo(toX(0) - 4, yPos); ctx.lineTo(toX(0), yPos);
+                ctx.stroke();
+                ctx.textAlign = 'right';
+                ctx.fillText(Number(v.toFixed(1)), toX(0) - 7, yPos + 3);
+                ctx.textAlign = 'center';
+            }
+
+            // Ejes cartesianos principales
+            ctx.strokeStyle = colorEjes;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(maxV), toY(0));
+            ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(0), toY(maxV));
+            ctx.stroke();
+
+            ctx.fillStyle = colorTexto;
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('x₁', toX(maxV) - 4, toY(0) + 16);
+            ctx.fillText('x₂', toX(0) - 14, toY(maxV) + 10);
+
+            // 3. Región Factible (Polígono convexo sombreado)
+            if(pts.length >= 3) {
+                let cent = { x: pts.reduce((a, b) => a + b.x, 0) / pts.length, y: pts.reduce((a, b) => a + b.y, 0) / pts.length };
+                pts.sort((a, b) => Math.atan2(a.y - cent.y, a.x - cent.x) - Math.atan2(b.y - cent.y, b.x - cent.x));
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.beginPath();
+                ctx.moveTo(toX(pts[0].x), toY(pts[0].y));
+                for(let i=1; i<pts.length; i++) ctx.lineTo(toX(pts[i].x), toY(pts[i].y));
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // 4. Rectas de Restricción
+            let pal = ['#38bdf8', '#4ade80', '#c084fc', '#fb923c', '#2dd4bf', '#f43f5e'];
+            let itemsLeyenda = [];
+
+            for(let i=0; i<m; i++) {
+                let a1 = modelo.A[i][0], a2 = modelo.A[i][1], bi = modelo.b[i];
+                let col = pal[i % pal.length];
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 1.7;
+                ctx.beginPath();
+                if(Math.abs(a2) > 1e-7) {
+                    ctx.moveTo(toX(0), toY(bi / a2));
+                    ctx.lineTo(toX(maxV), toY((bi - a1 * maxV) / a2));
+                } else if(Math.abs(a1) > 1e-7) {
+                    ctx.moveTo(toX(bi / a1), toY(0));
+                    ctx.lineTo(toX(bi / a1), toY(maxV));
+                }
+                ctx.stroke();
+
+                let opTxt = modelo.ops[i] === '<=' ? '≤' : (modelo.ops[i] === '>=' ? '≥' : '=');
+                itemsLeyenda.push({
+                    tipo: 'linea',
+                    color: col,
+                    texto: `${modelo.restrNombres[i]}: ${a1}x₁ + ${a2}x₂ ${opTxt} ${bi}`
+                });
+            }
+
+            // 5. Puntos FEV (Vértices)
+            ctx.fillStyle = colorMuted;
+            pts.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(toX(p.x), toY(p.y), 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            if(pts.length > 0) {
+                itemsLeyenda.push({ tipo: 'punto', color: colorMuted, texto: 'Vértices Factibles (FEV)' });
+            }
+
+            // 6. Solución Óptima e Isocuanta Z*
+            if(sol && zOpt !== undefined) {
+                let ox = sol['x1'] || 0, oy = sol['x2'] || 0;
+                let c1 = modelo.c[0], c2 = modelo.c[1];
+
+                if(Math.abs(c2) > 1e-7) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 1.8;
+                    ctx.setLineDash([5, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(toX(0), toY(zOpt / c2));
+                    ctx.lineTo(toX(maxV), toY((zOpt - c1 * maxV) / c2));
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(toX(ox), toY(oy), 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = colorTexto;
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(`Óptimo (${ox.toFixed(2)}, ${oy.toFixed(2)})`, toX(ox) + 8, toY(oy) - 6);
+
+                itemsLeyenda.push({ tipo: 'optimo', color: '#ef4444', texto: `Z* = ${zOpt.toFixed(2)} (${ox.toFixed(2)}, ${oy.toFixed(2)})` });
+            }
+
+            // 7. Renderizado de Leyenda Flotante en el Canvas (Top-Right)
+            if(itemsLeyenda.length > 0) {
+                const legX = W - 180;
+                const legY = padT + 2;
+                const legW = 168;
+                const legH = itemsLeyenda.length * 16 + 10;
+
+                ctx.fillStyle = bgLeyenda;
+                ctx.strokeStyle = bordeLeyenda;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(legX, legY, legW, legH, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'left';
+
+                itemsLeyenda.forEach((it, idx) => {
+                    let itemY = legY + 12 + idx * 16;
+                    
+                    if(it.tipo === 'linea') {
+                        ctx.strokeStyle = it.color;
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.moveTo(legX + 8, itemY);
+                        ctx.lineTo(legX + 22, itemY);
+                        ctx.stroke();
+                    } else if(it.tipo === 'punto') {
+                        ctx.fillStyle = it.color;
+                        ctx.beginPath();
+                        ctx.arc(legX + 15, itemY, 3.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if(it.tipo === 'optimo') {
+                        ctx.strokeStyle = it.color;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([3, 2]);
+                        ctx.beginPath();
+                        ctx.moveTo(legX + 6, itemY);
+                        ctx.lineTo(legX + 24, itemY);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.fillStyle = it.color;
+                        ctx.beginPath();
+                        ctx.arc(legX + 15, itemY, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.fillStyle = colorTexto;
+                    let txtRecortado = it.texto.length > 23 ? it.texto.substring(0, 22) + '…' : it.texto;
+                    ctx.fillText(txtRecortado, legX + 28, itemY + 3.5);
+                });
+            }
+
+            // 8. Badges HTML explicativos debajo del canvas
+            let badgesHtml = '';
+            for(let i=0; i<m; i++) {
+                let col = pal[i % pal.length];
+                let opTxt = modelo.ops[i] === '<=' ? '≤' : (modelo.ops[i] === '>=' ? '≥' : '=');
+                badgesHtml += `<div style="display:inline-flex; align-items:center; gap:5px; background:var(--bg-card); border:1px solid var(--border-color); padding:3px 8px; border-radius:4px;">
+                    <span style="display:inline-block; width:10px; height:3px; background:${col}; border-radius:2px;"></span>
+                    <span><strong>${modelo.restrNombres[i]}:</strong> ${modelo.A[i][0]}x₁ + ${modelo.A[i][1]}x₂ ${opTxt} ${modelo.b[i]}</span>
+                </div>`;
+            }
+            document.getElementById('leyendaHTML').innerHTML = badgesHtml;
+        }
+
+        // ==========================================
+        // FUNCIONES DE CONTROL DE UI
+        // ==========================================
+        function cambiarTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            if(tabId === 'tabGraf') dibujarGrafico();
+        }
+
+        function cargarCaso() {
+            let key = document.getElementById('selCaso').value;
+            let c = EJERCICIOS[key];
+            if(c) {
+                modelo = JSON.parse(JSON.stringify(c));
+                document.getElementById('tipoOpt').value = modelo.tipo;
+                document.getElementById('modoVar').value = modelo.modoVar;
+                document.getElementById('numVars').value = modelo.c.length;
+                document.getElementById('numRestr').value = modelo.b.length;
+                cambiarModoVar();
+                renderTablas();
+                actualizarModelo();
+            }
+        }
+
+        function guardarCaso() {
+            let nom = document.getElementById('guardarNombre').value.trim();
+            if(!nom) return;
+            EJERCICIOS[nom] = JSON.parse(JSON.stringify(modelo));
+            let sel = document.getElementById('selCaso');
+            let opt = document.createElement('option');
+            opt.value = nom; opt.innerText = nom;
+            sel.appendChild(opt);
+            sel.value = nom;
+            document.getElementById('guardarNombre').value = '';
+            alert(`Caso "${nom}" guardado exitosamente.`);
+        }
+
+        function limpiarCero() {
+            modelo.c.fill(0);
+            modelo.b.fill(0);
+            for(let i=0; i<modelo.A.length; i++) modelo.A[i].fill(0);
+            renderTablas();
+            actualizarModelo();
+        }
+
+        function toggleTema() {
+            let body = document.body;
+            let actual = body.getAttribute('data-theme');
+            let nuevo = actual === 'light' ? 'dark' : 'light';
+            body.setAttribute('data-theme', nuevo);
+            document.getElementById('btnTema').innerText = nuevo === 'light' ? 'Tema Oscuro' : 'Tema Claro';
+            if(modelo.c.length === 2) dibujarGrafico();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
