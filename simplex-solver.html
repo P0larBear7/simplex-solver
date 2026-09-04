@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Operaciones | PL, PLE & MIP con Variables x_ij</title>
+
+    <!-- KaTeX para renderizado matemático nítido -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #0b0f19;
+            --bg-panel: #111827;
+            --bg-card: #1f2937;
+            --border-color: #374151;
+            --excel-border: #2d3748;
+            --excel-header: #1e293b;
+            --excel-hover: #263345;
+            --excel-focus: #38bdf8;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --excel-green: #107c41;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --group-1: rgba(56, 189, 248, 0.12);
+            --group-2: rgba(168, 85, 247, 0.12);
+            --group-3: rgba(34, 197, 94, 0.12);
+            --group-4: rgba(249, 115, 22, 0.12);
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f8fafc;
+            --bg-panel: #ffffff;
+            --bg-card: #f1f5f9;
+            --border-color: #cbd5e1;
+            --excel-border: #e2e8f0;
+            --excel-header: #f1f5f9;
+            --excel-hover: #f8fafc;
+            --excel-focus: #0284c7;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --excel-green: #107c41;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --group-1: rgba(2, 132, 199, 0.08);
+            --group-2: rgba(147, 51, 234, 0.08);
+            --group-3: rgba(22, 163, 74, 0.08);
+            --group-4: rgba(234, 88, 12, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* Barra Superior */
+        .top-navbar {
+            height: 48px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .app-title { font-size: 14.5px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .app-title span { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+        .nav-actions { display: flex; gap: 6px; align-items: center; }
+
+        /* Vistas Rápidas */
+        .view-switcher {
+            display: flex;
+            background: var(--bg-card);
+            padding: 2px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        .btn-vista {
+            background: transparent;
+            border: none;
+            padding: 3px 9px;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-vista.active {
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Modos de visualización del Layout */
+        .main-layout {
+            display: grid;
+            gap: 10px;
+            padding: 10px;
+            flex-grow: 1;
+            height: calc(100vh - 48px);
+            overflow: hidden;
+            transition: all 0.15s ease;
+        }
+        .main-layout.vista-dividida {
+            grid-template-columns: 250px minmax(400px, 1.35fr) minmax(350px, 1fr);
+        }
+        .main-layout.vista-editor {
+            grid-template-columns: 250px 1fr 0px;
+        }
+        .main-layout.vista-editor .panel-resultados {
+            display: none;
+        }
+        .main-layout.vista-resultados {
+            grid-template-columns: 250px 0px 1fr;
+        }
+        .main-layout.vista-resultados .panel-central {
+            display: none;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            min-width: 0;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 3px; }
+        label { font-size: 11px; color: var(--text-muted); }
+
+        input, select, button {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+        button { cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+        button.secondary { background-color: transparent; }
+        button.secondary:hover { background-color: var(--bg-card); }
+
+        /* PLANILLA EXCEL CON INMOVILIZACIÓN DOBLE */
+        .excel-container {
+            overflow: auto;
+            border: 1px solid var(--excel-border);
+            border-radius: 4px;
+            background: var(--bg-panel);
+            position: relative;
+        }
+
+        .excel-table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .excel-table th, .excel-table td {
+            border-right: 1px solid var(--excel-border);
+            border-bottom: 1px solid var(--excel-border);
+            padding: 0;
+            margin: 0;
+            background-color: var(--bg-panel);
+        }
+
+        .excel-table th {
+            background-color: var(--excel-header);
+            color: var(--text-muted);
+            font-weight: 600;
+            text-align: center;
+            padding: 4px 6px;
+            white-space: nowrap;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        /* 1. Columna izquierda fija (Recurso / Restricción) */
+        .excel-table th.col-sticky-left, .excel-table td.col-sticky-left {
+            position: sticky;
+            left: 0;
+            z-index: 6;
+            min-width: 125px;
+            width: 125px;
+            background-color: var(--excel-header);
+            box-shadow: 2px 0 3px rgba(0,0,0,0.12);
+        }
+        .excel-table th.col-sticky-left { z-index: 10; }
+
+        /* 2. Columnas intermedias de variables */
+        .excel-table th.col-var, .excel-table td.col-var {
+            min-width: 56px;
+            width: 56px;
+        }
+
+        /* 3. Columnas derechas fijas (Operador y b) - SIEMPRE VISIBLES */
+        .excel-table th.col-sticky-op, .excel-table td.col-sticky-op {
+            position: sticky;
+            right: 80px;
+            z-index: 6;
+            min-width: 50px;
+            width: 50px;
+            background-color: var(--excel-header);
+            border-left: 1px solid var(--border-color);
+        }
+        .excel-table th.col-sticky-rhs, .excel-table td.col-sticky-rhs {
+            position: sticky;
+            right: 0;
+            z-index: 6;
+            min-width: 80px;
+            width: 80px;
+            background-color: var(--excel-header);
+            box-shadow: -2px 0 3px rgba(0,0,0,0.12);
+        }
+        .excel-table th.col-sticky-op, .excel-table th.col-sticky-rhs { z-index: 10; }
+
+        /* Estilos de Celda Input */
+        .excel-table input[type="number"], .excel-table input[type="text"], .excel-table select {
+            width: 100%;
+            height: 25px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: var(--text-main);
+            font-size: 12px;
+            padding: 2px 6px;
+            text-align: right;
+            outline: none;
+        }
+        .excel-table input[type="text"] { text-align: left; }
+        .excel-table select { text-align: center; font-weight: 700; color: var(--accent); }
+
+        /* Eliminar spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .excel-table input:focus, .excel-table select:focus {
+            background-color: var(--bg-card);
+            box-shadow: inset 0 0 0 1.5px var(--excel-focus);
+        }
+
+        /* Super Encabezados Agrupados */
+        .group-header {
+            font-size: 11px;
+            letter-spacing: 0.3px;
+            padding: 3px 0 !important;
+            font-weight: 700;
+        }
+        .group-col-1 { background-color: var(--group-1) !important; }
+        .group-col-2 { background-color: var(--group-2) !important; }
+        .group-col-3 { background-color: var(--group-3) !important; }
+        .group-col-4 { background-color: var(--group-4) !important; }
+
+        /* Pestañas de Resultados */
+        .tab-headers { display: flex; gap: 4px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+        .tab-btn { background: none; border: none; color: var(--text-muted); padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+        .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); border-radius: 0; }
+        .tab-content { display: none; height: 100%; overflow-y: auto; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 8px; }
+
+        .metric-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metric-val { font-size: 22px; font-weight: 800; color: var(--accent); }
+        .status-chip {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        #canvas2D { width: 100%; height: 300px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .disabled-box { opacity: 0.4; pointer-events: none; }
+        .latex-scroll {
+            background: var(--bg-card);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+            max-height: 160px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR SUPERIOR -->
+    <div class="top-navbar">
+        <div class="app-title">
+            Optimizador de Operaciones
+            <span>Investigación Operativa: PL, PLE y Modelos Matriciales</span>
+        </div>
+
+        <div class="view-switcher">
+            <button class="btn-vista active" id="btnVista-dividida" onclick="cambiarVista('dividida')">Vista Dividida</button>
+            <button class="btn-vista" id="btnVista-editor" onclick="cambiarVista('editor')">Planilla Expandida</button>
+            <button class="btn-vista" id="btnVista-resultados" onclick="cambiarVista('resultados')">Resultados</button>
+        </div>
+
+        <div class="nav-actions">
+            <select id="selCaso" style="max-width: 210px;">
+                <option value="transporte">Caso 15 Variables: Espacios & Asignación (3×5)</option>
+                <option value="wyndor">Ejemplo 3.1: Wyndor Glass Co. (2D Continuo)</option>
+                <option value="radiacion">Ejemplo 3.4: Radiación (2 Fases)</option>
+                <option value="omega">Problema 3.1-11: Omega Mfg (Entero Puro)</option>
+            </select>
+            <button class="secondary" onclick="cargarCaso()">Cargar</button>
+            <button class="secondary" onclick="toggleTema()" id="btnTema">Tema Claro</button>
+        </div>
+    </div>
+
+    <!-- CUERPO PRINCIPAL -->
+    <div class="main-layout vista-dividida" id="mainLayout">
+
+        <!-- 1. PANEL DE CONFIGURACIÓN -->
+        <div class="panel">
+            <div class="section-label">Configuración del Modelo</div>
+            <div class="control-group">
+                <label>Criterio de Optimización</label>
+                <select id="tipoOpt" onchange="actualizarModelo();">
+                    <option value="MIN">Minimizar (MIN)</option>
+                    <option value="MAX">Maximizar (MAX)</option>
+                </select>
+            </div>
+
+            <div class="section-label" style="margin-top: 4px;">Tipo de Variables</div>
+            <div class="control-group">
+                <label>Indexación</label>
+                <select id="tipoEstructuraVar" onchange="cambiarEstructuraVar();">
+                    <option value="2D">Matricial: xᵢⱼ (Filas i × Columnas j)</option>
+                    <option value="1D">Vectorial: x₁, x₂, … xₙ</option>
+                </select>
+            </div>
+
+            <!-- Controles según estructura -->
+            <div id="cfg2D" style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <div class="control-group">
+                        <label>Índice i (Filas)</label>
+                        <input type="number" id="dimI" value="3" min="1" max="15" onchange="redimensionar();">
+                    </div>
+                    <div class="control-group">
+                        <label>Índice j (Columnas)</label>
+                        <input type="number" id="dimJ" value="5" min="1" max="15" onchange="redimensionar();">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                    <div class="control-group">
+                        <label>Total Variables (n)</label>
+                        <input type="text" id="totalVarsCalc" value="15" disabled style="opacity: 0.7; text-align: center; font-weight: bold;">
+                    </div>
+                    <div class="control-group">
+                        <label>Restricciones (m)</label>
+                        <input type="number" id="numRestr2D" value="5" min="1" max="40" onchange="sincronizarRestr2D();">
+                    </div>
+                </div>
+            </div>
+
+            <div id="cfg1D" style="display: none; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <div class="control-group">
+                    <label>Variables (n)</label>
+                    <input type="number" id="numVars" value="15" min="1" max="60" onchange="redimensionar();">
+                </div>
+                <div class="control-group">
+                    <label>Restricciones (m)</label>
+                    <input type="number" id="numRestr" value="5" min="1" max="40" onchange="redimensionar();">
+                </div>
+            </div>
+
+            <hr style="border: 0.5px solid var(--border-color); margin: 4px 0;">
+            <div class="section-label">Naturaleza de Variables</div>
+            <div class="control-group">
+                <select id="modoVar" onchange="cambiarModoVar();">
+                    <option value="int">Todas Enteras (PLE)</option>
+                    <option value="cont">Continuas (PL)</option>
+                    <option value="mip">Personalizado (MIP)</option>
+                </select>
+            </div>
+
+            <div id="contenedorMIP" class="disabled-box" style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label>Selección de enteras:</label>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="secondary" style="font-size: 10px; padding: 1px 4px;" onclick="setAllEnteras(true)">Todas</button>
+                        <button class="secondary" style="font-size: 10px; padding: 1px 4px;" onclick="setAllEnteras(false)">Ninguna</button>
+                    </div>
+                </div>
+                <div id="listaCheckEnteros" style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 100px; overflow-y: auto; padding: 4px; background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border-color);"></div>
+            </div>
+
+            <hr style="border: 0.5px solid var(--border-color); margin-top: auto;">
+            <div style="display: flex; gap: 4px;">
+                <button class="secondary" style="flex: 1;" onclick="limpiarCero();">Limpiar Ceros</button>
+            </div>
+        </div>
+
+        <!-- 2. PANEL CENTRAL: PLANILLA EXCEL -->
+        <div class="panel panel-central" id="panelCentral">
+            
+            <!-- FUNCIÓN OBJETIVO: Vista 2D para x_ij o lineal para x_k -->
+            <div class="section-label">
+                <span id="lblTituloCostos">1. Matriz de Costos Cᵢⱼ (Función Objetivo Z)</span>
+                <div style="display: flex; gap: 4px;" id="contToggleCostos">
+                    <button class="secondary" style="font-size: 10px; padding: 1px 6px;" onclick="toggleModoCostos(false)" id="btnCostos2D">Matriz 2D</button>
+                    <button class="secondary" style="font-size: 10px; padding: 1px 6px;" onclick="toggleModoCostos(true)" id="btnCostos1D">Fila Lineal</button>
+                </div>
+            </div>
+
+            <!-- Contenedor Costos 2D Matricial -->
+            <div class="excel-container" id="boxCostos2D" style="max-height: 120px;">
+                <table class="excel-table" id="tablaCostos2D"></table>
+            </div>
+
+            <!-- Contenedor Costos 1D Vectorial -->
+            <div class="excel-container" id="boxCostos1D" style="display: none; max-height: 68px;">
+                <table class="excel-table" id="tablaCostos1D"></table>
+            </div>
+
+            <!-- MATRIZ DE RESTRICCIONES TECNOLÓGICAS -->
+            <div class="section-label" style="margin-top: 6px;">
+                <span>2. Matriz de Restricciones Tecnológicas</span>
+                <span style="font-size: 10px; color: var(--accent);">Columna Izquierda y Lado Derecho (b) fijos</span>
+            </div>
+            <div class="excel-container" style="flex-grow: 1; min-height: 200px; max-height: 380px;">
+                <table class="excel-table" id="tablaRestr"></table>
+            </div>
+
+            <!-- FORMULACIÓN MATEMÁTICA -->
+            <div class="section-label" style="margin-top: 6px;">
+                <span>3. Formulación Matemática</span>
+            </div>
+            <div class="latex-scroll" id="latexBox"></div>
+        </div>
+
+        <!-- 3. PANEL DERECHO: RESULTADOS -->
+        <div class="panel panel-resultados">
+            <div class="tab-headers">
+                <button class="tab-btn active" onclick="cambiarTab('tabSol', this)">Solución</button>
+                <button class="tab-btn" id="btnTabMatriz" onclick="cambiarTab('tabMatriz', this)">Matriz Xᵢⱼ</button>
+                <button class="tab-btn" onclick="cambiarTab('tabGraf', this)">Gráfico 2D</button>
+                <button class="tab-btn" onclick="cambiarTab('tabTablas', this)">Tablas Símplex</button>
+            </div>
+
+            <!-- TAB SOLUCIÓN -->
+            <div id="tabSol" class="tab-content active">
+                <div class="metric-card">
+                    <div>
+                        <div style="font-size: 10.5px; color: var(--text-muted); text-transform: uppercase;">Valor Óptimo Z*</div>
+                        <div class="metric-val" id="valZOpt">0.00</div>
+                    </div>
+                    <div id="statusChip" class="status-chip">Factible</div>
+                </div>
+
+                <div class="section-label" style="margin-top: 4px;">Valores Óptimos de Variables</div>
+                <div class="excel-container" style="max-height: 155px;">
+                    <table class="excel-table" id="tablaSolVars" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding-left: 8px;">Variable</th>
+                                <th>Valor Óptimo</th>
+                                <th>Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="section-label" style="margin-top: 4px;">Balance de Recursos y Holguras</div>
+                <div class="excel-container" style="max-height: 165px;">
+                    <table class="excel-table" id="tablaRecursos" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding-left: 8px;">Recurso</th>
+                                <th>Holgura</th>
+                                <th>Precio Sombra</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB MATRIZ X_ij DE RESULTADOS -->
+            <div id="tabMatriz" class="tab-content">
+                <div class="section-label">Distribución Óptima Xᵢⱼ (i filas × j columnas)</div>
+                <div class="excel-container" style="max-height: 310px;">
+                    <table class="excel-table" id="tablaMatrizResultados"></table>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                    Totales marginales acumulados por fila (∑ⱼ xᵢⱼ) y por columna (∑ᵢ xᵢⱼ) calculados automáticamente.
+                </div>
+            </div>
+
+            <!-- TAB GRÁFICO 2D -->
+            <div id="tabGraf" class="tab-content">
+                <canvas id="canvas2D"></canvas>
+                <div id="leyendaHTML" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; font-size: 11px;"></div>
+            </div>
+
+            <!-- TAB TABLAS SÍMPLEX -->
+            <div id="tabTablas" class="tab-content">
+                <div id="logTablas" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MOTOR MATEMÁTICO COMPLETO -->
+    <script>
+        // Estado del modelo
+        let modelo = {
+            tipo: 'MIN',
+            estructuraVar: '2D',
+            dimI: 3,
+            dimJ: 5,
+            modoVar: 'int',
+            costosLineales: false,
+            c: [65, 65, 65, 65, 65, 100, 100, 100, 100, 100, 80, 80, 80, 80, 80],
+            A: [
+                [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0]
+            ],
+            ops: ['>=', '>=', '>=', '<=', '<='],
+            b: [30000, 20000, 40000, 35000, 25000],
+            restrNombres: ['Espacio 1', 'Espacio 2', 'Espacio 3', 'Capacidad 1', 'Capacidad 2'],
+            enterosSel: []
+        };
+
+        const EJERCICIOS = {
+            transporte: {
+                tipo: 'MIN', estructuraVar: '2D', dimI: 3, dimJ: 5, modoVar: 'int', costosLineales: false,
+                c: [65, 65, 65, 65, 65, 100, 100, 100, 100, 100, 80, 80, 80, 80, 80],
+                A: [
+                    [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+                    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                    [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0]
+                ],
+                ops: ['>=', '>=', '>=', '<=', '<='],
+                b: [30000, 20000, 40000, 35000, 25000],
+                restrNombres: ['Espacio 1', 'Espacio 2', 'Espacio 3', 'Capacidad 1', 'Capacidad 2'],
+                enterosSel: []
+            },
+            wyndor: {
+                tipo: 'MAX', estructuraVar: '1D', dimI: 1, dimJ: 2, modoVar: 'cont', costosLineales: true, c: [3, 5],
+                A: [[1, 0], [0, 2], [3, 2]], ops: ['<=', '<=', '<='], b: [4, 12, 18],
+                restrNombres: ['Planta 1', 'Planta 2', 'Planta 3'], enterosSel: []
+            },
+            radiacion: {
+                tipo: 'MIN', estructuraVar: '1D', dimI: 1, dimJ: 2, modoVar: 'cont', costosLineales: true, c: [0.4, 0.5],
+                A: [[0.3, 0.1], [0.5, 0.5], [0.6, 0.4]], ops: ['<=', '=', '>='], b: [2.7, 6.0, 6.0],
+                restrNombres: ['Tejido Sano', 'Dosis Requerida', 'Centro Tumor'], enterosSel: []
+            },
+            omega: {
+                tipo: 'MAX', estructuraVar: '1D', dimI: 1, dimJ: 3, modoVar: 'int', costosLineales: true, c: [50, 20, 25],
+                A: [[9, 3, 5], [5, 4, 0], [3, 0, 2], [0, 0, 1]], ops: ['<=', '<=', '<=', '<='], b: [500, 350, 150, 20],
+                restrNombres: ['Fresadora', 'Torno', 'Rectificadora', 'Demanda P3'], enterosSel: [0, 1, 2]
+            }
+        };
+
+        function init() {
+            sincronizarControlesUI();
+            renderTablas();
+            actualizarModelo();
+        }
+
+        // Generador de formato matemático para variables
+        function getVarTex(k) {
+            if (modelo.estructuraVar === '2D') {
+                const J = modelo.dimJ || 1;
+                const i = Math.floor(k / J) + 1;
+                const j = (k % J) + 1;
+                return `x_{${i},${j}}`;
+            } else {
+                return `x_{${k+1}}`;
+            }
+        }
+
+        function getVarHtml(k) {
+            const tex = getVarTex(k);
+            if (window.katex) {
+                try {
+                    return katex.renderToString(tex, { throwOnError: false });
+                } catch(e) {}
+            }
+            if (modelo.estructuraVar === '2D') {
+                const J = modelo.dimJ || 1;
+                const i = Math.floor(k / J) + 1;
+                const j = (k % J) + 1;
+                return `x<sub>${i},${j}</sub>`;
+            }
+            return `x<sub>${k+1}</sub>`;
+        }
+
+        function sincronizarControlesUI() {
+            document.getElementById('tipoOpt').value = modelo.tipo;
+            document.getElementById('tipoEstructuraVar').value = modelo.estructuraVar;
+            document.getElementById('modoVar').value = modelo.modoVar;
+
+            const es2D = modelo.estructuraVar === '2D';
+            document.getElementById('cfg1D').style.display = es2D ? 'none' : 'grid';
+            document.getElementById('cfg2D').style.display = es2D ? 'flex' : 'none';
+            document.getElementById('btnTabMatriz').style.display = es2D ? 'inline-block' : 'none';
+            document.getElementById('contToggleCostos').style.display = es2D ? 'flex' : 'none';
+
+            if (es2D) {
+                document.getElementById('dimI').value = modelo.dimI;
+                document.getElementById('dimJ').value = modelo.dimJ;
+                document.getElementById('totalVarsCalc').value = modelo.dimI * modelo.dimJ;
+                document.getElementById('numRestr2D').value = modelo.b.length;
+                document.getElementById('lblTituloCostos').innerText = "1. Matriz de Costos Cᵢⱼ (Función Objetivo Z)";
+            } else {
+                document.getElementById('numVars').value = modelo.c.length;
+                document.getElementById('numRestr').value = modelo.b.length;
+                document.getElementById('lblTituloCostos').innerText = "1. Coeficientes de Costo Cⱼ (Función Objetivo Z)";
+            }
+
+            const contenedor = document.getElementById('contenedorMIP');
+            if (modelo.modoVar === 'mip') {
+                contenedor.classList.remove('disabled-box');
+            } else {
+                contenedor.classList.add('disabled-box');
+            }
+        }
+
+        function toggleModoCostos(esLineal) {
+            modelo.costosLineales = esLineal;
+            document.getElementById('btnCostos2D').style.fontWeight = !esLineal ? '700' : '400';
+            document.getElementById('btnCostos1D').style.fontWeight = esLineal ? '700' : '400';
+            renderTablasCostos();
+        }
+
+        function cambiarEstructuraVar() {
+            modelo.estructuraVar = document.getElementById('tipoEstructuraVar').value;
+            if (modelo.estructuraVar === '2D') {
+                modelo.dimI = parseInt(document.getElementById('dimI').value) || 3;
+                modelo.dimJ = parseInt(document.getElementById('dimJ').value) || 5;
+            }
+            sincronizarControlesUI();
+            redimensionar();
+        }
+
+        function sincronizarRestr2D() {
+            const m = parseInt(document.getElementById('numRestr2D').value);
+            document.getElementById('numRestr').value = m;
+            redimensionar();
+        }
+
+        function redimensionar() {
+            let n;
+            if (modelo.estructuraVar === '2D') {
+                modelo.dimI = Math.max(1, parseInt(document.getElementById('dimI').value) || 1);
+                modelo.dimJ = Math.max(1, parseInt(document.getElementById('dimJ').value) || 1);
+                n = modelo.dimI * modelo.dimJ;
+                document.getElementById('totalVarsCalc').value = n;
+            } else {
+                n = Math.max(1, parseInt(document.getElementById('numVars').value) || 1);
+            }
+
+            const m = modelo.estructuraVar === '2D' 
+                ? Math.max(1, parseInt(document.getElementById('numRestr2D').value) || 1)
+                : Math.max(1, parseInt(document.getElementById('numRestr').value) || 1);
+
+            while (modelo.c.length < n) modelo.c.push(0);
+            modelo.c = modelo.c.slice(0, n);
+
+            while (modelo.A.length < m) {
+                modelo.A.push(new Array(n).fill(0));
+                modelo.ops.push('<=');
+                modelo.b.push(0);
+                modelo.restrNombres.push(`R${modelo.A.length}`);
+            }
+            modelo.A = modelo.A.slice(0, m);
+            modelo.ops = modelo.ops.slice(0, m);
+            modelo.b = modelo.b.slice(0, m);
+            modelo.restrNombres = modelo.restrNombres.slice(0, m);
+
+            for (let i = 0; i < m; i++) {
+                while (modelo.A[i].length < n) modelo.A[i].push(0);
+                modelo.A[i] = modelo.A[i].slice(0, n);
+            }
+
+            renderTablas();
+            actualizarModelo();
+        }
+
+        function renderTablas() {
+            renderTablasCostos();
+            renderTablaRestricciones();
+            renderCheckboxesMIP();
+        }
+
+        function renderTablasCostos() {
+            const n = modelo.c.length;
+            const es2D = modelo.estructuraVar === '2D' && !modelo.costosLineales;
+
+            if (es2D) {
+                document.getElementById('boxCostos2D').style.display = 'block';
+                document.getElementById('boxCostos1D').style.display = 'none';
+
+                const I = modelo.dimI, J = modelo.dimJ;
+                let thead = '<thead><tr><th class="col-sticky-left" style="text-align: left; padding-left: 8px;">Costo Cᵢⱼ</th>';
+                for (let j = 1; j <= J; j++) {
+                    thead += `<th style="min-width: 60px;">Columna j=${j}</th>`;
+                }
+                thead += '</tr></thead>';
+
+                let tbody = '<tbody>';
+                for (let i = 1; i <= I; i++) {
+                    tbody += `<tr><td class="col-sticky-left" style="font-weight: 700; color: var(--accent); padding-left: 8px;">Fila i=${i}</td>`;
+                    for (let j = 1; j <= J; j++) {
+                        let k = (i - 1) * J + (j - 1);
+                        tbody += `<td><input type="number" step="any" value="${modelo.c[k]}" oninput="modelo.c[${k}]=parseFloat(this.value)||0; actualizarModelo();"></td>`;
+                    }
+                    tbody += '</tr>';
+                }
+                tbody += '</tbody>';
+                document.getElementById('tablaCostos2D').innerHTML = thead + tbody;
+
+            } else {
+                document.getElementById('boxCostos2D').style.display = 'none';
+                document.getElementById('boxCostos1D').style.display = 'block';
+
+                let hObj = '<thead><tr><th class="col-sticky-left" style="text-align: left; padding-left: 8px;">Coeficiente</th>';
+                let rObj = '<tbody><tr><td class="col-sticky-left" style="font-weight: 700; color: var(--accent); padding-left: 8px;">Costo Cⱼ</td>';
+
+                for (let j = 0; j < n; j++) {
+                    hObj += `<th class="col-var">${getVarHtml(j)}</th>`;
+                    rObj += `<td class="col-var"><input type="number" step="any" value="${modelo.c[j]}" oninput="modelo.c[${j}]=parseFloat(this.value)||0; actualizarModelo();"></td>`;
+                }
+                document.getElementById('tablaCostos1D').innerHTML = hObj + '</tr></thead>' + rObj + '</tr></tbody>';
+            }
+        }
+
+        function renderTablaRestricciones() {
+            const n = modelo.c.length;
+            const m = modelo.b.length;
+            const es2D = modelo.estructuraVar === '2D';
+            const I = modelo.dimI, J = modelo.dimJ;
+
+            let hRes = '<thead>';
+
+            if (es2D && I > 1) {
+                hRes += '<tr><th rowspan="2" class="col-sticky-left" style="text-align: left; padding-left: 8px;">Recurso / Restricción</th>';
+                for (let i = 1; i <= I; i++) {
+                    let colClase = `group-col-${((i-1)%4)+1}`;
+                    hRes += `<th colspan="${J}" class="group-header ${colClase}">Bloque i = ${i}</th>`;
+                }
+                hRes += '<th rowspan="2" class="col-sticky-op">Op</th><th rowspan="2" class="col-sticky-rhs">Lado Der. (b)</th></tr>';
+                
+                hRes += '<tr>';
+                for (let j = 0; j < n; j++) {
+                    let iNum = Math.floor(j / J) + 1;
+                    let colClase = `group-col-${((iNum-1)%4)+1}`;
+                    hRes += `<th class="col-var ${colClase}">${getVarHtml(j)}</th>`;
+                }
+                hRes += '</tr></thead>';
+            } else {
+                hRes += '<tr><th class="col-sticky-left" style="text-align: left; padding-left: 8px;">Recurso / Restricción</th>';
+                for (let j = 0; j < n; j++) {
+                    hRes += `<th class="col-var">${getVarHtml(j)}</th>`;
+                }
+                hRes += '<th class="col-sticky-op">Op</th><th class="col-sticky-rhs">Lado Der. (b)</th></tr></thead>';
+            }
+
+            let bRes = '<tbody>';
+            for (let i = 0; i < m; i++) {
+                bRes += `<tr>
+                    <td class="col-sticky-left"><input type="text" value="${modelo.restrNombres[i]}" oninput="modelo.restrNombres[${i}]=this.value; actualizarModelo();"></td>`;
+                for (let j = 0; j < n; j++) {
+                    bRes += `<td class="col-var"><input type="number" step="any" value="${modelo.A[i][j]}" oninput="modelo.A[${i}][${j}]=parseFloat(this.value)||0; actualizarModelo();"></td>`;
+                }
+                bRes += `<td class="col-sticky-op"><select onchange="modelo.ops[${i}]=this.value; actualizarModelo();">
+                    <option value="<=" ${modelo.ops[i]==='<='?'selected':''}>&le;</option>
+                    <option value=">=" ${modelo.ops[i]==='>='?'selected':''}>&ge;</option>
+                    <option value="=" ${modelo.ops[i]==='='?'selected':''}>=</option>
+                </select></td>`;
+                bRes += `<td class="col-sticky-rhs"><input type="number" step="any" value="${modelo.b[i]}" oninput="modelo.b[${i}]=parseFloat(this.value)||0; actualizarModelo();"></td></tr>`;
+            }
+            bRes += '</tbody>';
+            document.getElementById('tablaRestr').innerHTML = hRes + bRes;
+        }
+
+        function renderCheckboxesMIP() {
+            const n = modelo.c.length;
+            let htmlCheck = '';
+            for (let j = 0; j < n; j++) {
+                let checked = modelo.enterosSel.includes(j) ? 'checked' : '';
+                htmlCheck += `<label style="display:inline-flex; align-items:center; gap:2px; font-size:11px; margin-right:4px;">
+                    <input type="checkbox" value="${j}" ${checked} onchange="toggleEnteroVar(${j}, this.checked)"> ${getVarHtml(j)}
+                </label>`;
+            }
+            document.getElementById('listaCheckEnteros').innerHTML = htmlCheck;
+        }
+
+        function cambiarModoVar() {
+            const modo = document.getElementById('modoVar').value;
+            modelo.modoVar = modo;
+            const contenedor = document.getElementById('contenedorMIP');
+
+            if (modo === 'mip') {
+                contenedor.classList.remove('disabled-box');
+            } else {
+                contenedor.classList.add('disabled-box');
+                if (modo === 'int') {
+                    modelo.enterosSel = modelo.c.map((_, j) => j);
+                } else {
+                    modelo.enterosSel = [];
+                }
+            }
+            actualizarModelo();
+        }
+
+        function toggleEnteroVar(idx, isCheck) {
+            idx = parseInt(idx);
+            if (isCheck) {
+                if (!modelo.enterosSel.includes(idx)) modelo.enterosSel.push(idx);
+            } else {
+                modelo.enterosSel = modelo.enterosSel.filter(x => x !== idx);
+            }
+            actualizarModelo();
+        }
+
+        function setAllEnteras(val) {
+            modelo.enterosSel = val ? modelo.c.map((_, j) => j) : [];
+            renderCheckboxesMIP();
+            actualizarModelo();
+        }
+
+        function actualizarModelo() {
+            modelo.tipo = document.getElementById('tipoOpt').value;
+            renderLaTeX();
+            resolver();
+        }
+
+        function renderLaTeX() {
+            const n = modelo.c.length;
+            const m = modelo.b.length;
+
+            function formatTerm(coefs) {
+                let terms = [];
+                for (let j = 0; j < coefs.length; j++) {
+                    let v = coefs[j];
+                    if (Math.abs(v) < 1e-7) continue;
+                    let sgn = v < 0 ? ' - ' : (terms.length ? ' + ' : '');
+                    let absV = Math.abs(v);
+                    let cStr = Math.abs(absV - 1.0) < 1e-7 ? '' : `${absV}`;
+                    terms.push(`${sgn}${cStr}${getVarTex(j)}`);
+                }
+                return terms.length ? terms.join('') : '0';
+            }
+
+            let termZ = formatTerm(modelo.c);
+            let tex = `\\begin{aligned} \\text{${modelo.tipo === 'MAX' ? 'Max' : 'Min'}} \\quad & Z = ${termZ} \\\\[3pt] `;
+
+            for (let i = 0; i < m; i++) {
+                let termR = formatTerm(modelo.A[i]);
+                let opS = modelo.ops[i] === '<=' ? '\\le' : (modelo.ops[i] === '>=' ? '\\ge' : '=');
+                tex += `\\text{${modelo.restrNombres[i]}}: \\quad & ${termR} ${opS} ${modelo.b[i]} \\\\[2pt] `;
+            }
+
+            if (modelo.modoVar === 'int') {
+                tex += `& \\text{Todas las } x \\in \\mathbb{Z}_{\\ge 0} \\end{aligned}`;
+            } else if (modelo.modoVar === 'mip' && modelo.enterosSel.length > 0) {
+                let eStr = modelo.enterosSel.map(idx => getVarTex(idx)).join(', ');
+                tex += `& ${eStr} \\in \\mathbb{Z}_{\\ge 0}; \\quad \\text{resto } \\ge 0 \\end{aligned}`;
+            } else {
+                tex += `& \\text{Todas las } x \\ge 0 \\end{aligned}`;
+            }
+
+            if (window.katex) {
+                katex.render(tex, document.getElementById('latexBox'), { throwOnError: false });
+            }
+        }
+
+        // ==========================================
+        // ALGORITMO SÍMPLEX DE DOS FASES
+        // ==========================================
+        function simplexDosFases(cOrig, AOrig, opsOrig, bOrig, tipoOpt) {
+            let m = bOrig.length, n = cOrig.length;
+            let A = JSON.parse(JSON.stringify(AOrig)), b = [...bOrig], ops = [...opsOrig];
+
+            for (let i = 0; i < m; i++) {
+                if (b[i] < -1e-8) {
+                    b[i] *= -1;
+                    for (let j = 0; j < n; j++) A[i][j] *= -1;
+                    ops[i] = ops[i] === '<=' ? '>=' : (ops[i] === '>=' ? '<=' : '=');
+                }
+            }
+
+            let nombresTotales = [];
+            for (let j = 0; j < n; j++) nombresTotales.push(getVarTex(j));
+
+            let colsAum = [], basicas = [], artIndices = [], tipos = new Array(n).fill('dec'), restrOrigen = new Array(n).fill(null);
+            let sIdx = 1, eIdx = 1, aIdx = 1;
+
+            for (let i = 0; i < m; i++) {
+                if (ops[i] === '<=') {
+                    let col = new Array(m).fill(0); col[i] = 1;
+                    colsAum.push(col);
+                    nombresTotales.push(`s_{${sIdx++}}`);
+                    tipos.push('slack'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                } else if (ops[i] === '>=') {
+                    let colE = new Array(m).fill(0); colE[i] = -1;
+                    colsAum.push(colE);
+                    nombresTotales.push(`e_{${eIdx++}}`);
+                    tipos.push('surplus'); restrOrigen.push(i);
+
+                    let colA = new Array(m).fill(0); colA[i] = 1;
+                    colsAum.push(colA);
+                    nombresTotales.push(`a_{${aIdx++}}`);
+                    tipos.push('art'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                    artIndices.push(nombresTotales.length - 1);
+                } else {
+                    let colA = new Array(m).fill(0); colA[i] = 1;
+                    colsAum.push(colA);
+                    nombresTotales.push(`a_{${aIdx++}}`);
+                    tipos.push('art'); restrOrigen.push(i);
+                    basicas.push(nombresTotales.length - 1);
+                    artIndices.push(nombresTotales.length - 1);
+                }
+            }
+
+            let totalCols = n + colsAum.length;
+            let matrizA = [];
+            for (let i = 0; i < m; i++) {
+                let fila = [...A[i]];
+                for (let k = 0; k < colsAum.length; k++) fila.push(colsAum[k][i]);
+                matrizA.push(fila);
+            }
+
+            let historialTablas = [];
+
+            function pivotar(T, fPiv, cPiv, basicasArr) {
+                let pVal = T[fPiv][cPiv];
+                for (let j = 0; j < T[0].length; j++) T[fPiv][j] /= pVal;
+                for (let r = 0; r < T.length; r++) {
+                    if (r !== fPiv) {
+                        let fac = T[r][cPiv];
+                        for (let j = 0; j < T[0].length; j++) T[r][j] -= fac * T[fPiv][j];
+                    }
+                }
+                basicasArr[fPiv - 1] = cPiv - 1;
+            }
+
+            // FASE 1
+            if (artIndices.length > 0) {
+                let T1 = [];
+                let r0 = [1, ...new Array(totalCols).fill(0), 0];
+                for (let idx of artIndices) r0[idx + 1] = 1.0;
+                T1.push(r0);
+                for (let i = 0; i < m; i++) T1.push([0, ...matrizA[i], b[i]]);
+
+                for (let i = 0; i < m; i++) {
+                    if (artIndices.includes(basicas[i])) {
+                        for (let j = 0; j < T1[0].length; j++) T1[0][j] -= T1[i+1][j];
+                    }
+                }
+
+                let iter = 0;
+                while (iter++ < 60) {
+                    historialTablas.push({ fase: 1, iter, tabla: JSON.parse(JSON.stringify(T1)), basicas: basicas.map(idx => nombresTotales[idx]), cols: ['Z/W', ...nombresTotales, 'RHS'] });
+                    let minCost = 0, cPiv = -1;
+                    for (let j = 1; j <= totalCols; j++) if (T1[0][j] < minCost - 1e-7) { minCost = T1[0][j]; cPiv = j; }
+                    if (cPiv === -1) break;
+
+                    let minR = Infinity, fPiv = -1;
+                    for (let i = 1; i <= m; i++) {
+                        if (T1[i][cPiv] > 1e-7) {
+                            let r = T1[i][T1[0].length - 1] / T1[i][cPiv];
+                            if (r < minR) { minR = r; fPiv = i; }
+                        }
+                    }
+                    if (fPiv === -1) return { exito: false, msg: 'No acotado' };
+                    pivotar(T1, fPiv, cPiv, basicas);
+                }
+
+                if (Math.abs(T1[0][T1[0].length - 1]) > 1e-4) return { exito: false, msg: 'Infactible (Región vacía)' };
+
+                let validCols = [];
+                for (let j = 0; j < totalCols; j++) if (!artIndices.includes(j)) validCols.push(j);
+
+                matrizA = [];
+                for (let i = 1; i <= m; i++) {
+                    matrizA.push(validCols.map(j => T1[i][j + 1]));
+                    b[i-1] = T1[i][T1[0].length - 1];
+                }
+                totalCols = validCols.length;
+                nombresTotales = validCols.map(j => nombresTotales[j]);
+                tipos = validCols.map(j => tipos[j]);
+                restrOrigen = validCols.map(j => restrOrigen[j]);
+                basicas = basicas.map(idx => validCols.indexOf(idx));
+            }
+
+            // FASE 2
+            let c2 = new Array(totalCols).fill(0);
+            for (let j = 0; j < n; j++) c2[j] = tipoOpt === 'MAX' ? cOrig[j] : -cOrig[j];
+
+            let T2 = [];
+            T2.push([1, ...c2.map(v => -v), 0]);
+            for (let i = 0; i < m; i++) T2.push([0, ...matrizA[i], b[i]]);
+
+            for (let i = 0; i < m; i++) {
+                let bCol = basicas[i];
+                let fac = T2[0][bCol + 1];
+                if (Math.abs(fac) > 1e-7) {
+                    for (let j = 0; j < T2[0].length; j++) T2[0][j] -= fac * T2[i+1][j];
+                }
+            }
+
+            let iter2 = 0;
+            while (iter2++ < 60) {
+                historialTablas.push({ fase: 2, iter: iter2, tabla: JSON.parse(JSON.stringify(T2)), basicas: basicas.map(idx => nombresTotales[idx]), cols: ['Z/W', ...nombresTotales, 'RHS'] });
+                let minCost = 0, cPiv = -1;
+                for (let j = 1; j <= totalCols; j++) if (T2[0][j] < minCost - 1e-7) { minCost = T2[0][j]; cPiv = j; }
+                if (cPiv === -1) break;
+
+                let minR = Infinity, fPiv = -1;
+                for (let i = 1; i <= m; i++) {
+                    if (T2[i][cPiv] > 1e-7) {
+                        let r = T2[i][T2[0].length - 1] / T2[i][cPiv];
+                        if (r < minR) { minR = r; fPiv = i; }
+                    }
+                }
+                if (fPiv === -1) return { exito: false, msg: 'No acotado' };
+                pivotar(T2, fPiv, cPiv, basicas);
+            }
+
+            let sol = new Array(n).fill(0);
+            for (let i = 0; i < m; i++) {
+                let colIdx = basicas[i];
+                if (colIdx < n) sol[colIdx] = Math.max(0, T2[i+1][T2[0].length - 1]);
+            }
+
+            let zOpt = T2[0][T2[0].length - 1] * (tipoOpt === 'MAX' ? 1 : -1);
+
+            let sombras = {};
+            for (let j = 0; j < totalCols; j++) {
+                if ((tipos[j] === 'slack' || tipos[j] === 'surplus') && restrOrigen[j] !== null) {
+                    let rNom = modelo.restrNombres[restrOrigen[j]];
+                    let coef = T2[0][j + 1];
+                    let valDual = tipos[j] === 'slack' ? coef : -coef;
+                    if (tipoOpt === 'MIN') valDual *= -1;
+                    sombras[rNom] = Math.abs(valDual);
+                }
+            }
+
+            return { exito: true, zOpt, sol, sombras, historial: historialTablas };
+        }
+
+        // ==========================================
+        // ALGORITMO BRANCH & BOUND (MIP / PLE)
+        // ==========================================
+        function branchAndBound(indicesEnteros) {
+            let bestZ = modelo.tipo === 'MAX' ? -Infinity : Infinity;
+            let bestSol = null;
+            let nodosExplorados = 0;
+            let logArbol = [];
+
+            let pila = [{ A: JSON.parse(JSON.stringify(modelo.A)), ops: [...modelo.ops], b: [...modelo.b], tag: 'Raíz' }];
+
+            while (pila.length > 0 && nodosExplorados < 200) {
+                let nodo = pila.pop();
+                nodosExplorados++;
+
+                let res = simplexDosFases(modelo.c, nodo.A, nodo.ops, nodo.b, modelo.tipo);
+
+                if (!res.exito) {
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Infactible`);
+                    continue;
+                }
+
+                if ((modelo.tipo === 'MAX' && res.zOpt <= bestZ + 1e-4) || (modelo.tipo === 'MIN' && res.zOpt >= bestZ - 1e-4)) {
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Acotado`);
+                    continue;
+                }
+
+                let varFrac = null;
+                for (let j of indicesEnteros) {
+                    let val = res.sol[j] || 0;
+                    if (Math.abs(val - Math.round(val)) > 1e-4) {
+                        varFrac = { j, val };
+                        break;
+                    }
+                }
+
+                if (!varFrac) {
+                    bestZ = res.zOpt;
+                    bestSol = [...res.sol];
+                    for (let j of indicesEnteros) bestSol[j] = Math.round(bestSol[j]);
+                    logArbol.push(`Nodo ${nodosExplorados} (${nodo.tag}): Incumbente Z = ${bestZ.toFixed(2)}`);
+                } else {
+                    let nom = getVarTex(varFrac.j);
+                    let fVal = Math.floor(varFrac.val), cVal = Math.ceil(varFrac.val);
+
+                    let filaL = new Array(modelo.c.length).fill(0); filaL[varFrac.j] = 1;
+                    pila.push({ A: [...nodo.A, filaL], ops: [...nodo.ops, '<='], b: [...nodo.b, fVal], tag: `${nom} <= ${fVal}` });
+
+                    let filaR = new Array(modelo.c.length).fill(0); filaR[varFrac.j] = 1;
+                    pila.push({ A: [...nodo.A, filaR], ops: [...nodo.ops, '>='], b: [...nodo.b, cVal], tag: `${nom} >= ${cVal}` });
+                }
+            }
+
+            if (!bestSol) return { exito: false, msg: 'Sin solución factible' };
+            return { exito: true, zOpt: bestZ, sol: bestSol, sombras: {}, logArbol, nodosExplorados };
+        }
+
+        // ==========================================
+        // RESOLVER Y DESPLEGAR RESULTADOS
+        // ==========================================
+        function resolver() {
+            let indicesEnteros = [];
+            if (modelo.modoVar === 'int') {
+                indicesEnteros = modelo.c.map((_, j) => j);
+            } else if (modelo.modoVar === 'mip') {
+                indicesEnteros = [...modelo.enterosSel];
+            }
+
+            let esEntero = indicesEnteros.length > 0;
+            let res = esEntero ? branchAndBound(indicesEnteros) : simplexDosFases(modelo.c, modelo.A, modelo.ops, modelo.b, modelo.tipo);
+
+            if (!res.exito) {
+                document.getElementById('valZOpt').innerText = "Infactible";
+                document.getElementById('statusChip').innerText = res.msg;
+                document.getElementById('statusChip').style.color = 'var(--danger)';
+                document.getElementById('statusChip').style.borderColor = 'var(--danger)';
+                return;
+            }
+
+            document.getElementById('valZOpt').innerText = Number(res.zOpt.toFixed(esEntero ? 2 : 4)).toLocaleString('es-CL');
+            let tagModo = modelo.modoVar === 'int' ? 'Entero Puro' : (esEntero ? 'MIP' : 'Continuo');
+            document.getElementById('statusChip').innerText = `● Óptimo · ${tagModo}`;
+            document.getElementById('statusChip').style.color = 'var(--accent)';
+            document.getElementById('statusChip').style.borderColor = 'var(--accent)';
+
+            // 1. Tabla de Variables de Decisión
+            let tbodyV = '';
+            for (let j = 0; j < modelo.c.length; j++) {
+                let v = res.sol[j] || 0;
+                let esInt = indicesEnteros.includes(j);
+                let valFormateado = esInt ? Math.round(v).toLocaleString('es-CL') : v.toFixed(4);
+                tbodyV += `<tr>
+                    <td style="text-align:left; padding-left:10px; font-weight:600;">${getVarHtml(j)}</td>
+                    <td style="text-align:right; padding-right:12px; font-weight:700; color:var(--accent);">${valFormateado}</td>
+                    <td style="text-align:center; color:var(--text-muted);">${esInt ? 'Entera' : 'Continua'}</td>
+                </tr>`;
+            }
+            document.getElementById('tablaSolVars').querySelector('tbody').innerHTML = tbodyV;
+
+            // 2. Tabla Recursos y Holguras
+            let tbodyR = '';
+            for (let i = 0; i < modelo.b.length; i++) {
+                let consumo = 0;
+                for (let j = 0; j < modelo.c.length; j++) consumo += modelo.A[i][j] * (res.sol[j] || 0);
+                let holg = Math.abs(modelo.b[i] - consumo);
+                let esCuello = holg < 1e-4;
+                let sombra = (res.sombras && res.sombras[modelo.restrNombres[i]]) ? res.sombras[modelo.restrNombres[i]].toFixed(2) : '0.00';
+                tbodyR += `<tr>
+                    <td style="text-align:left; padding-left:10px; font-weight:600;">${modelo.restrNombres[i]}</td>
+                    <td style="text-align:right; padding-right:10px;">${holg.toFixed(2)}</td>
+                    <td style="text-align:right; padding-right:10px;">${sombra}</td>
+                    <td style="text-align:center;"><span style="color:${esCuello ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">${esCuello ? 'Agotado' : 'Disponible'}</span></td>
+                </tr>`;
+            }
+            document.getElementById('tablaRecursos').querySelector('tbody').innerHTML = tbodyR;
+
+            // 3. Matriz X_ij de Resultados
+            if (modelo.estructuraVar === '2D') {
+                renderMatrizResultados(res.sol);
+            }
+
+            // 4. Gráfico 2D
+            if (modelo.c.length === 2) {
+                dibujarGrafico({ x1: res.sol[0], x2: res.sol[1] }, res.zOpt);
+            }
+
+            // 5. Tablas Símplex
+            let logTabHtml = '';
+            if (res.historial && res.historial.length > 0) {
+                res.historial.forEach(h => {
+                    logTabHtml += `<div style="border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; background: var(--bg-card);">
+                        <div style="font-weight:700; margin-bottom:4px; font-size:11.5px;">Fase ${h.fase} | Iteración ${h.iter}</div>
+                        <div style="overflow-x:auto;"><table class="excel-table"><thead><tr><th>Base</th>${h.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+                    for (let r = 0; r < h.tabla.length; r++) {
+                        let bNom = r === 0 ? 'Z/W' : h.basicas[r-1];
+                        logTabHtml += `<tr><td><strong>${bNom}</strong></td>${h.tabla[r].map(val => `<td>${val.toFixed(2)}</td>`).join('')}</tr>`;
+                    }
+                    logTabHtml += `</tbody></table></div></div>`;
+                });
+            } else {
+                logTabHtml = '<div style="color: var(--text-muted); font-size: 11px;">Resuelto con Branch & Bound.</div>';
+            }
+            document.getElementById('logTablas').innerHTML = logTabHtml;
+        }
+
+        function renderMatrizResultados(sol) {
+            const I = modelo.dimI, J = modelo.dimJ;
+            let thead = '<thead><tr><th class="col-sticky-left" style="text-align: left; padding-left:8px;">Fila \\ Col</th>';
+            for (let j = 1; j <= J; j++) thead += `<th>Columna j=${j}</th>`;
+            thead += '<th style="background:var(--excel-header); font-weight:700;">Total Fila</th></tr></thead>';
+
+            let tbody = '<tbody>';
+            let colSums = new Array(J).fill(0);
+
+            for (let i = 1; i <= I; i++) {
+                tbody += `<tr><td class="col-sticky-left" style="font-weight:600; padding-left:8px;">Fila i=${i}</td>`;
+                let rowSum = 0;
+                for (let j = 1; j <= J; j++) {
+                    let k = (i - 1) * J + (j - 1);
+                    let val = sol[k] || 0;
+                    rowSum += val;
+                    colSums[j-1] += val;
+                    let vStr = Number(val.toFixed(2)).toLocaleString('es-CL');
+                    let color = val > 1e-4 ? 'color: var(--accent); font-weight: bold;' : 'color: var(--text-muted);';
+                    tbody += `<td style="text-align:right; padding-right:8px; ${color}">${vStr}</td>`;
+                }
+                tbody += `<td style="text-align:right; padding-right:8px; font-weight:700; background:rgba(56,189,248,0.06);">${Number(rowSum.toFixed(2)).toLocaleString('es-CL')}</td></tr>`;
+            }
+
+            // Fila Total Columnas
+            tbody += `<tr style="font-weight:700; background:var(--excel-header);"><td class="col-sticky-left" style="padding-left:8px;">Total Columna</td>`;
+            let granTotal = 0;
+            for (let j = 0; j < J; j++) {
+                granTotal += colSums[j];
+                tbody += `<td style="text-align:right; padding-right:8px;">${Number(colSums[j].toFixed(2)).toLocaleString('es-CL')}</td>`;
+            }
+            tbody += `<td style="text-align:right; padding-right:8px; color:var(--accent); font-size:13px;">${Number(granTotal.toFixed(2)).toLocaleString('es-CL')}</td></tr></tbody>`;
+
+            document.getElementById('tablaMatrizResultados').innerHTML = thead + tbody;
+        }
+
+        // ==========================================
+        // CANVAS 2D
+        // ==========================================
+        function dibujarGrafico(sol, zOpt) {
+            const cv = document.getElementById('canvas2D');
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = cv.getBoundingClientRect();
+            const W = rect.width || 360, H = 300;
+            cv.width = W * dpr; cv.height = H * dpr;
+            ctx.scale(dpr, dpr);
+
+            const esClaro = document.body.getAttribute('data-theme') === 'light';
+            const colorTexto = esClaro ? '#0f172a' : '#f8fafc';
+            const colorEjes = esClaro ? '#94a3b8' : '#475569';
+
+            ctx.clearRect(0, 0, W, H);
+            let m = modelo.b.length;
+            let lineas = [];
+            for (let i = 0; i < m; i++) lineas.push([modelo.A[i][0], modelo.A[i][1], modelo.b[i]]);
+            lineas.push([1, 0, 0]); lineas.push([0, 1, 0]);
+
+            let pts = [];
+            for (let i = 0; i < lineas.length; i++) {
+                for (let j = i+1; j < lineas.length; j++) {
+                    let det = lineas[i][0]*lineas[j][1] - lineas[i][1]*lineas[j][0];
+                    if (Math.abs(det) > 1e-7) {
+                        let px = (lineas[i][2]*lineas[j][1] - lineas[i][1]*lineas[j][2]) / det;
+                        let py = (lineas[i][0]*lineas[j][2] - lineas[i][2]*lineas[j][0]) / det;
+                        if (px >= -1e-4 && py >= -1e-4) {
+                            let fact = true;
+                            for (let k = 0; k < m; k++) {
+                                let val = modelo.A[k][0]*px + modelo.A[k][1]*py;
+                                if ((modelo.ops[k]==='<=' && val > modelo.b[k]+1e-4) ||
+                                    (modelo.ops[k]==='>=' && val < modelo.b[k]-1e-4) ||
+                                    (modelo.ops[k]==='=' && Math.abs(val - modelo.b[k]) > 1e-4)) {
+                                    fact = false; break;
+                                }
+                            }
+                            if (fact && !pts.some(p => Math.hypot(p.x - px, p.y - py) < 1e-3)) pts.push({ x: px, y: py });
+                        }
+                    }
+                }
+            }
+
+            let maxV = Math.max(...pts.map(p => Math.max(p.x, p.y)), 5);
+            for (let i = 0; i < m; i++) {
+                if (Math.abs(modelo.A[i][0]) > 1e-4) maxV = Math.max(maxV, modelo.b[i] / modelo.A[i][0]);
+                if (Math.abs(modelo.A[i][1]) > 1e-4) maxV = Math.max(maxV, modelo.b[i] / modelo.A[i][1]);
+            }
+            maxV = Math.min(maxV * 1.25, 200);
+
+            const padL = 34, padB = 22, padR = 14, padT = 12;
+            let toX = (x) => padL + (x / maxV) * (W - padL - padR);
+            let toY = (y) => (H - padB) - (y / maxV) * (H - padT - padB);
+
+            // Ejes
+            ctx.strokeStyle = colorEjes; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(maxV), toY(0));
+            ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(0), toY(maxV));
+            ctx.stroke();
+
+            // Polígono
+            if (pts.length >= 3) {
+                let cent = { x: pts.reduce((a, b) => a + b.x, 0) / pts.length, y: pts.reduce((a, b) => a + b.y, 0) / pts.length };
+                pts.sort((a, b) => Math.atan2(a.y - cent.y, a.x - cent.x) - Math.atan2(b.y - cent.y, b.x - cent.x));
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+                ctx.beginPath();
+                ctx.moveTo(toX(pts[0].x), toY(pts[0].y));
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(toX(pts[i].x), toY(pts[i].y));
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Rectas
+            let pal = ['#38bdf8', '#4ade80', '#c084fc', '#fb923c', '#2dd4bf'];
+            for (let i = 0; i < m; i++) {
+                let a1 = modelo.A[i][0], a2 = modelo.A[i][1], bi = modelo.b[i];
+                ctx.strokeStyle = pal[i % pal.length];
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                if (Math.abs(a2) > 1e-7) {
+                    ctx.moveTo(toX(0), toY(bi / a2));
+                    ctx.lineTo(toX(maxV), toY((bi - a1 * maxV) / a2));
+                } else if (Math.abs(a1) > 1e-7) {
+                    ctx.moveTo(toX(bi / a1), toY(0));
+                    ctx.lineTo(toX(bi / a1), toY(maxV));
+                }
+                ctx.stroke();
+            }
+
+            // Óptimo
+            if (sol && zOpt !== undefined) {
+                let ox = sol.x1 || 0, oy = sol.x2 || 0;
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(toX(ox), toY(oy), 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = colorTexto;
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillText(`(${ox.toFixed(1)}, ${oy.toFixed(1)})`, toX(ox) + 6, toY(oy) - 4);
+            }
+        }
+
+        // ==========================================
+        // CONTROL DE INTERFAZ Y VISTAS
+        // ==========================================
+        function cambiarVista(modo) {
+            const layout = document.getElementById('mainLayout');
+            layout.className = 'main-layout vista-' + modo;
+            document.querySelectorAll('.btn-vista').forEach(b => b.classList.remove('active'));
+            document.getElementById('btnVista-' + modo).classList.add('active');
+        }
+
+        function cambiarTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+            if (tabId === 'tabGraf') dibujarGrafico();
+        }
+
+        function cargarCaso() {
+            let key = document.getElementById('selCaso').value;
+            let c = EJERCICIOS[key];
+            if (c) {
+                modelo = JSON.parse(JSON.stringify(c));
+                sincronizarControlesUI();
+                renderTablas();
+                actualizarModelo();
+            }
+        }
+
+        function limpiarCero() {
+            modelo.c.fill(0);
+            modelo.b.fill(0);
+            for (let i = 0; i < modelo.A.length; i++) modelo.A[i].fill(0);
+            renderTablas();
+            actualizarModelo();
+        }
+
+        function toggleTema() {
+            let body = document.body;
+            let actual = body.getAttribute('data-theme');
+            let nuevo = actual === 'light' ? 'dark' : 'light';
+            body.setAttribute('data-theme', nuevo);
+            document.getElementById('btnTema').innerText = nuevo === 'light' ? 'Tema Oscuro' : 'Tema Claro';
+            if (modelo.c.length === 2) dibujarGrafico();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
